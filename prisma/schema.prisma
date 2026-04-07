@@ -1,0 +1,221 @@
+// generator client {
+//   provider = "prisma-client-js"
+// }
+
+// datasource db {
+//   provider = "mongodb"
+//   url      = env("DATABASE_URL")
+// }
+
+generator client {
+  provider   = "prisma-client-js"
+  // output     = "./generated"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "mongodb"
+}
+
+model AuthProvider {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  provider   AuthType
+  providerId String
+  userId     String   @db.ObjectId
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerId])
+}
+
+model AuthToken {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      AuthTokenType
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, type])
+  @@map("auth_tokens")
+}
+
+model User {
+  id            String              @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  email         String              @unique
+  phone         String?
+  password      String?
+  gender        String?
+  isVerified    Boolean             @default(false)
+  role          UserRole            @default(USER)
+  transactions  TransactionIntent[] @relation("userTransactions")
+  rewards       Reward[]            @relation("userRewards")
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  authTokens    AuthToken[]
+  authProviders AuthProvider[]
+
+  @@map("users")
+}
+
+model Brand {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  logo           String
+  about          String?
+  phone          String
+  whatsappLink   String
+  email          String?
+  isFeatured     Boolean   @default(false)
+  featuredUntil  DateTime?
+  products       Product[]
+  ownerId        String?   @db.ObjectId
+  commissionRate Float     @default(5.0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("brands")
+}
+
+model Product {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  price       Float
+  images      String[]
+  category    String
+  brandId     String   @db.ObjectId
+  brand       Brand    @relation(fields: [brandId], references: [id])
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("products")
+}
+
+model TransactionIntent {
+  id          String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String            @db.ObjectId
+  user        User              @relation("userTransactions", fields: [userId], references: [id])
+  productId   String            @db.ObjectId
+  brandId     String            @db.ObjectId
+  status      TransactionStatus @default(PENDING)
+  refCode     String            @unique
+  amount      Float?
+  commission  Float?
+  completedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("transaction_intents")
+}
+
+model Reward {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String       @db.ObjectId
+  user        User         @relation("userRewards", fields: [userId], references: [id])
+  type        RewardType   @default(PURCHASE_STREAK)
+  amount      Float
+  status      RewardStatus @default(PENDING)
+  description String?
+  claimedAt   DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("rewards")
+}
+
+model ActivityLog {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  type      ActivityType
+  userId    String?      @db.ObjectId
+  productId String?      @db.ObjectId
+  brandId   String?      @db.ObjectId
+  metadata  Json?
+  message   String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime     @default(now())
+
+  @@index([type])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model Commission {
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  transactionId String           @unique @db.ObjectId
+  brandId       String           @db.ObjectId
+  amount        Float
+  rate          Float
+  status        CommissionStatus @default(PENDING)
+  paidAt        DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@map("commissions")
+}
+
+enum UserRole {
+  USER
+  BRAND_OWNER
+  ADMIN
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum RewardType {
+  PURCHASE_STREAK
+  REFERRAL
+  LOYALTY
+  PROMOTIONAL
+}
+
+enum RewardStatus {
+  PENDING
+  CLAIMED
+  EXPIRED
+  CANCELLED
+}
+
+enum ActivityType {
+  PRODUCT_VIEW
+  WHATSAPP_CLICK
+  BRAND_VIEW
+  SEARCH
+  LOGIN
+  REGISTER
+  TRANSACTION_INITIATED
+  TRANSACTION_COMPLETED
+}
+
+enum CommissionStatus {
+  PENDING
+  PAID
+  WAIVED
+}
+
+enum AuthType {
+  GOOGLE
+  EMAIL
+  APPLE
+  UNKNOWN
+}
+
+enum AuthTokenType {
+  EMAIL_OTP
+  PASSWORD_RESET
+}
