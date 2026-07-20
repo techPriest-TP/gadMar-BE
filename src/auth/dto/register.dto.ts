@@ -1,78 +1,33 @@
-import { ApiProperty, PartialType } from '@nestjs/swagger';
-import {
-  IsBoolean,
-  IsEmail,
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MinLength,
-} from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
-import { IntersectionType } from '@nestjs/swagger';
-
-enum Gender {
-  MALE = 'male',
-  FEMALE = 'female',
-}
-// Required user data DTO
 export class RegisterDto {
-  @ApiProperty()
+  @ApiProperty({ example: 'Ada' })
   @IsString()
   @IsNotEmpty()
   firstName: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Okafor' })
   @IsString()
   @IsNotEmpty()
   lastName: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'ada@example.com' })
   @IsEmail()
-  @IsNotEmpty()
   email: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '+2348012345678', required: false })
   @IsString()
-  @IsNotEmpty()
-  phoneNumber: string;
+  @IsOptional()
+  phone?: string;
 
-  @ApiProperty()
+  @ApiProperty({ minLength: 8 })
   @IsString()
-  @IsNotEmpty()
   @MinLength(8)
   password: string;
-  @ApiProperty()
-  @IsOptional()
+
+  @ApiProperty({ example: 'web', required: false })
   @IsString()
+  @IsOptional()
   platform?: string;
 }
-
-// Additional employee data
-export class AdditionalEmployeeDataDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  roleId: string;
-
-  @ApiProperty()
-  @IsOptional()
-  @IsString()
-  adminId: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsEnum(Gender)
-  gender: string;
-
-  @ApiProperty()
-  @IsOptional()
-  @IsBoolean()
-  isActive: boolean;
-}
-
-// Combine them
-export class AddEmployeeDTO extends IntersectionType(
-  RegisterDto,
-  AdditionalEmployeeDataDto,
-) {}

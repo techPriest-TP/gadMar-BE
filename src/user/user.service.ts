@@ -15,7 +15,7 @@ export class UserService {
   constructor(private prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    const { name, email, phone, password, role } = createUserDto;
+    const { firstName, lastName, email, phone, password, role } = createUserDto;
 
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
@@ -32,7 +32,8 @@ export class UserService {
     // Create user
     const user = await this.prisma.user.create({
       data: {
-        name,
+        firstName,
+        lastName,
         email,
         phone,
         password: hashedPassword,
@@ -195,7 +196,8 @@ export class UserService {
   private mapToUserResponse(user: any): UserResponseDto {
     return {
       id: user.id,
-      name: user.name,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       phone: user.phone,
       role: user.role,

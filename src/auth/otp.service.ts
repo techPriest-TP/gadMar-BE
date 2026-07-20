@@ -70,7 +70,7 @@ export class OtpService {
       await this.agenda.now(EmailJobType.SEND, {
         to: user.email,
         subject: 'Your Verification Code',
-        html: otpEmailTemplate(user.name.split(' ')[0], otp),
+        html: otpEmailTemplate(user.firstName, otp),
         tag: 'OTP_EMAIL',
       });
 

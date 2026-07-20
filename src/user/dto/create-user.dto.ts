@@ -9,10 +9,15 @@ import {
 } from 'class-validator';
 
 export class CreateUserDto {
-  @ApiProperty({ example: 'John Doe', description: 'User full name' })
+  @ApiProperty({ example: 'John', description: 'User first name' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  firstName: string;
+
+  @ApiProperty({ example: 'Doe', description: 'User last name' })
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
 
   @ApiProperty({ example: 'john@example.com', description: 'User email address' })
   @IsEmail()

@@ -55,7 +55,13 @@ export class NotificationService implements OnModuleInit {
   async authenticateWithFirebase(idToken: string) {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
 
-    const { uid, email, name, email_verified, firebase } = decodedToken;
+    const {
+      uid,
+      email,
+      name: providerName,
+      email_verified,
+      firebase,
+    } = decodedToken;
 
     const provider = firebase?.sign_in_provider; // 'google.com', 'apple.com', 'password'
 
@@ -67,10 +73,9 @@ export class NotificationService implements OnModuleInit {
       throw new UnauthorizedException('Email not verified');
     }
 
-    // Handle name safely (Apple may not send it)
-    const nameParts = name ? name.split(' ') : ['User'];
-    const firstName = nameParts[0];
-    const lastName = nameParts.slice(1).join(' ') || '';
+    const nameParts = providerName?.trim().split(/\s+/) ?? [];
+    const firstName = nameParts.shift() || 'Firebase';
+    const lastName = nameParts.join(' ') || 'User';
 
     let user = await this.prisma.user.findUnique({
       where: { email },
@@ -81,7 +86,8 @@ export class NotificationService implements OnModuleInit {
       user = await this.prisma.user.create({
         data: {
           email,
-          name,
+          firstName,
+          lastName,
           isVerified: true,
           authProviders: {
             create: {

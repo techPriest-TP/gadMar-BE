@@ -21,7 +21,8 @@ async function main() {
   const adminPassword = await bcrypt.hash('admin123', 10);
   const admin = await prisma.user.create({
     data: {
-      name: 'Admin User',
+      firstName: 'Admin',
+      lastName: 'User',
       email: 'admin@gadmar.com',
       phone: '+2348012345678',
       password: adminPassword,
@@ -34,7 +35,8 @@ async function main() {
   const brandOwnerPassword = await bcrypt.hash('owner123', 10);
   const brandOwner = await prisma.user.create({
     data: {
-      name: 'Brand Owner',
+      firstName: 'Brand',
+      lastName: 'Owner',
       email: 'owner@apple.com',
       phone: '+2348098765432',
       password: brandOwnerPassword,
@@ -47,7 +49,8 @@ async function main() {
   const userPassword = await bcrypt.hash('user123', 10);
   const user1 = await prisma.user.create({
     data: {
-      name: 'John Doe',
+      firstName: 'John',
+      lastName: 'Doe',
       email: 'john@example.com',
       phone: '+2348034567890',
       password: userPassword,
@@ -57,7 +60,8 @@ async function main() {
 
   const user2 = await prisma.user.create({
     data: {
-      name: 'Jane Smith',
+      firstName: 'Jane',
+      lastName: 'Smith',
       email: 'jane@example.com',
       phone: '+2348045678901',
       password: userPassword,

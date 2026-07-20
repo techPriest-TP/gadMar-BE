@@ -18,7 +18,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import type { Request as req } from 'express';
 import { GoogleAuthGuard } from 'src/common/guards/google-auth.guard';
 // import { getClientUrl } from 'src/utils/helpers';
 import type { RequestUser } from '../common/decorators/user.decorator';
@@ -110,7 +109,6 @@ export class AuthController {
   @Post('refresh-token')
   @ApiOperation({ summary: 'Refresh access token' })
   async refreshTokens(@Body() payload: { refreshToken: string }) {
-    console.log({ payload });
     const tokens = await this.authService.refreshTokens(payload.refreshToken);
     return {
       ...tokens,
@@ -129,18 +127,12 @@ export class AuthController {
   //   return { message: 'If account exists, email sent', success: true };
   // }
   @Post('forgot-password')
-  async forgot(@Body() dto: ForgotPasswordDto, @Req() request: req) {
-    console.log({ dto });
-    // console.log('request headers: ', request);
-    // const origin = getClientUrl(request) ?? 'http://localhost:3000';
-    console.log('origin: ', origin);
-    return await this.authService.requestReset(dto.email);
-    // return { message: 'If account exists, email sent', success: true };
+  async forgot(@Body() dto: ForgotPasswordDto) {
+    return this.authService.requestReset(dto.email);
   }
 
   @Post('reset-password')
   async reset(@Body() dto: ResetPasswordDto) {
-    console.log({ dto });
     await this.authService.resetPassword(dto.otp, dto.newPassword, dto.email);
     return { message: 'Password reset successful', success: true };
   }
@@ -171,7 +163,7 @@ export class AuthController {
     description:
       'Frontend redirect URL after successful Google authentication. Must be a valid, allowed frontend URL.',
   })
-  async googleAuth(@Req() req: Request) {
+  async googleAuth() {
     // Handled entirely by Passport (redirects to Google)
   }
 

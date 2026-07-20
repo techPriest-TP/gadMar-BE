@@ -2,12 +2,12 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export interface RequestUser {
   id: string;
+  userId: string;
   email: string;
   firstName: string;
   lastName: string;
   role: string;
-  country: string;
-  phoneNumber: string;
+  phone?: string;
 }
 
 export const CurrentUser = createParamDecorator(

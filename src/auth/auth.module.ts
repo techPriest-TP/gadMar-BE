@@ -11,12 +11,10 @@ import { LocalStrategy } from './strategies/local.strategy';
 // import { HttpModule } from "@nestjs/axios";
 import { JwtModuleOptions } from '@nestjs/jwt';
 // import { NinepsbService } from "@/ninepsb-virtual-account/ninepsb.service";
-import { PrismaService } from 'src/prisma/prisma.service';
 import ms from 'ms';
 import { OtpService } from './otp.service';
 import { AgendaModule } from 'src/queue/agenda.module';
 import { GoogleStrategy } from './strategies/google.strategy';
-import { NotificationService } from 'src/notification/service';
 
 @Module({
   imports: [
@@ -38,19 +36,14 @@ import { NotificationService } from 'src/notification/service';
       inject: [ConfigService],
     }),
     AgendaModule,
-    // HttpModule,
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
     JwtStrategy,
     LocalStrategy,
-    // VirtualAccountService,
-    PrismaService,
     OtpService,
     GoogleStrategy,
-    NotificationService,
-    // NinepsbService,
   ],
   exports: [AuthService],
 })

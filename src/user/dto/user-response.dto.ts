@@ -5,7 +5,10 @@ export class UserResponseDto {
   id: string;
 
   @ApiProperty()
-  name: string;
+  firstName: string;
+
+  @ApiProperty()
+  lastName: string;
 
   @ApiProperty()
   email: string;
