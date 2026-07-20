@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import {
   Injectable,
+  Logger,
   NotFoundException,
   OnModuleInit,
   UnauthorizedException,
@@ -9,6 +10,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class NotificationService implements OnModuleInit {
+  private readonly logger = new Logger(NotificationService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
@@ -20,7 +23,7 @@ export class NotificationService implements OnModuleInit {
     const rawConfig = process.env.FIREBASE_CONFIG;
 
     if (!rawConfig) {
-      console.error('❌ FIREBASE_CONFIG is missing');
+      this.logger.warn('FIREBASE_CONFIG is missing; push notifications are disabled');
       return;
     }
 
@@ -43,9 +46,9 @@ export class NotificationService implements OnModuleInit {
         credential: admin.credential.cert(firebaseConfig),
       });
 
-      console.log('✅ Firebase Admin Initialized');
+      this.logger.log('Firebase Admin initialized');
     } catch (error: any) {
-      console.error('❌ Firebase Init Error:', error.message);
+      this.logger.error('Firebase initialization failed', error.message);
     }
   }
   // Inside your AuthService
@@ -212,7 +215,7 @@ export class NotificationService implements OnModuleInit {
         invalidTokensRemoved: invalidTokens.length,
       };
     } catch (error) {
-      console.error('Error sending broadcast:', error);
+      this.logger.error('Failed to send notification broadcast', error);
       throw error;
     }
   }

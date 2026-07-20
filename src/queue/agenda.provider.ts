@@ -1,16 +1,15 @@
 import { Agenda } from '@hokify/agenda';
+import { ConfigService } from '@nestjs/config';
 
 export const AgendaProvider = {
   provide: 'AGENDA',
-  useFactory: async () => {
-    const mongoUrl = process.env.MONGO_DB_URL;
-    if (!mongoUrl) {
-      throw new Error('MONGO_DB_URL is required to start the GadMar email queue');
-    }
+  inject: [ConfigService],
+  useFactory: async (configService: ConfigService) => {
+    const databaseUrl = configService.getOrThrow<string>('DATABASE_URL');
 
     const agenda = new Agenda({
       name: 'GadMar Email Worker',
-      db: { address: mongoUrl, collection: 'jobs' },
+      db: { address: databaseUrl, collection: 'jobs' },
     });
 
     await agenda.start();

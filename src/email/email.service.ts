@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-// import { configs } from 'src/utils/config';
 
 @Injectable()
 export class MailService {
@@ -10,10 +9,11 @@ export class MailService {
   private PostMarkToken: string = '';
   private PostMarkFromEmail: string;
   constructor(private readonly configService: ConfigService) {
-    this.PostMarkUrl = this.configService.get<string>('POSTMARK_URL') || '';
-    this.PostMarkToken = this.configService.get<string>('POSTMARK_TOKEN') || '';
+    this.PostMarkUrl = this.configService.getOrThrow<string>('POSTMARK_URL');
+    this.PostMarkToken =
+      this.configService.getOrThrow<string>('POSTMARK_TOKEN');
     this.PostMarkFromEmail =
-      this.configService.get<string>('POSTMARK_FROM_EMAIL') || ' ';
+      this.configService.getOrThrow<string>('POSTMARK_FROM_EMAIL');
   }
 
   // private http = axios.create({
@@ -47,7 +47,7 @@ export class MailService {
         })
         .post('/email', {
           To: params.to,
-          From: `Lagos Water-Craft <${this.PostMarkFromEmail}>`,
+          From: `GadMar <${this.PostMarkFromEmail}>`,
           Subject: params.subject,
           HtmlBody: params.html,
           Tag: params.tag ?? 'transactional',

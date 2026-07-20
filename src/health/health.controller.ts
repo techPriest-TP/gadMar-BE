@@ -12,7 +12,7 @@ export class HealthController {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      service: 'gadgetlink-api',
+      service: 'gadmar-api',
       version: '1.0.0',
     };
   }

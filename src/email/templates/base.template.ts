@@ -319,7 +319,7 @@ const PostmarkTemplate = (name: string, message: string) => {
                 <td class="wrapper">
                   <p>Hello ${name},</p>
                   <p>${message}</p>
-                  <p style="margin-top:10px;">You're receiving this mail because you're a Lagos Water-Craft user.</p>
+                  <p style="margin-top:10px;">You're receiving this mail because you're a GadMar user.</p>
                 </td>
               </tr>
 
@@ -332,7 +332,7 @@ const PostmarkTemplate = (name: string, message: string) => {
                 
                 <tr>
                   <td class="content-block powered-by">
-                    &copy; Lagos Water-Craft 2025
+                    &copy; GadMar ${new Date().getFullYear()}
                   </td>
                 </tr>
               </table>

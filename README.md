@@ -28,7 +28,31 @@ yarn install
 
 Create a `.env` file and provide the application, authentication, database, email, Google OAuth, Firebase, and Cloudinary values required by the enabled modules.
 
-The main MongoDB connection and the Agenda email worker currently use `MONGO_DB_URL`.
+The main MongoDB connection and the Agenda email worker both use `DATABASE_URL`.
+
+Required variables:
+
+```text
+DATABASE_URL
+JWT_SECRET
+JWT_REFRESH_SECRET
+FRONTEND_URL
+POSTMARK_URL
+POSTMARK_TOKEN
+POSTMARK_FROM_EMAIL
+```
+
+`JWT_SECRET` and `JWT_REFRESH_SECRET` must each contain at least 32 characters. Google OAuth, Firebase, Cloudinary, CORS, and other integration variables are optional until their respective features are enabled.
+
+Google OAuth requires all three values before its routes become available:
+
+```text
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+GOOGLE_CLIENT_CALLBACK_URL
+```
+
+If they are absent, Google OAuth endpoints return `503 Service Unavailable`. If `FIREBASE_CONFIG` is absent, push notifications remain disabled while the rest of the API continues to start.
 
 Generate Prisma Client:
 

@@ -28,7 +28,7 @@ import { NotificationService } from 'src/notification/service';
         configService: ConfigService,
       ): Promise<JwtModuleOptions> => {
         return {
-          secret: configService.get<string>('JWT_SECRET'),
+          secret: configService.getOrThrow<string>('JWT_SECRET'),
           signOptions: {
             expiresIn: (configService.get<string>('JWT_EXPIRE') ||
               '1h') as ms.StringValue,

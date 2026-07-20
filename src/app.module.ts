@@ -14,12 +14,14 @@ import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { CommissionModule } from './commission/commission.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
+import { validateEnvironment } from './config/environment';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validate: validateEnvironment,
     }),
     // Rate limiting
     ThrottlerModule.forRoot([

@@ -11,11 +11,12 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     private readonly config: ConfigService,
   ) {
     super({
-      clientID: config.get<string>('GOOGLE_CLIENT_ID') || '',
-      clientSecret: config.get<string>('GOOGLE_CLIENT_SECRET') || '',
-      callbackURL: config.get<string>('GOOGLE_CLIENT_CALLBACK_URL'),
+      clientID: config.get<string>('GOOGLE_CLIENT_ID') || 'disabled',
+      clientSecret: config.get<string>('GOOGLE_CLIENT_SECRET') || 'disabled',
+      callbackURL:
+        config.get<string>('GOOGLE_CLIENT_CALLBACK_URL') ||
+        'http://localhost/disabled-google-oauth',
       scope: ['email', 'profile'],
-      //   prompt: 'select_account',
       passReqToCallback: false,
     });
   }
@@ -42,8 +43,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       user = await this.prisma.user.create({
         data: {
           email,
-          name: firstName + lastName,
-          // isVerified: true,
+          name: `${firstName} ${lastName}`.trim(),
           authProviders: {
             create: {
               provider: 'GOOGLE',
