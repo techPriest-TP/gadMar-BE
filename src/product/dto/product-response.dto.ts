@@ -11,7 +11,7 @@ export class ProductResponseDto {
   @ApiProperty({ type: [String] }) images: string[];
   @ApiProperty() category: string;
   @ApiProperty({ enum: ProductCondition }) condition: ProductCondition;
-  @ApiProperty({ required: false, type: Object }) specifications?: Record<string, unknown>;
+  @ApiProperty({ required: false, type: Object }) specifications?: unknown;
   @ApiProperty({ enum: StockStatus }) stockStatus: StockStatus;
   @ApiProperty({ required: false }) stockQuantity?: number;
   @ApiProperty({ required: false }) warrantyInformation?: string;

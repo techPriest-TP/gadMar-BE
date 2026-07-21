@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { BrandStatus, NigerianRegion } from '@prisma/client';
+import { ProductResponseDto } from '../../product/dto/product-response.dto';
 
 export class BrandResponseDto {
   @ApiProperty() id: string;
@@ -39,5 +40,5 @@ export class BrandWithStatsDto extends BrandResponseDto {
 
 export class BrandStorefrontDto {
   @ApiProperty({ type: BrandResponseDto }) brand: BrandResponseDto;
-  @ApiProperty({ type: [Object] }) products: unknown[];
+  @ApiProperty({ type: () => [ProductResponseDto] }) products: ProductResponseDto[];
 }
