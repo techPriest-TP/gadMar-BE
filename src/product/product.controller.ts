@@ -1,26 +1,15 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-  UseGuards,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { ProductService } from './product.service';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
-import { ProductResponseDto, ProductWithBrandDto } from './dto/product-response.dto';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { NigerianRegion, ProductCondition, StockStatus, UserRole } from '@prisma/client';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/decorators/public.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
+import { RequestUser } from '../common/decorators/user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { Public } from '../common/decorators/public.decorator';
-import { UserRole } from '@prisma/client';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductService } from './product.service';
 
 @ApiTags('Products')
 @ApiBearerAuth()
@@ -31,123 +20,84 @@ export class ProductController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new product' })
-  @ApiResponse({
-    status: 201,
-    description: 'Product created successfully',
-    type: ProductResponseDto,
-  })
-  async create(@Body() createProductDto: CreateProductDto): Promise<ProductResponseDto> {
-    return this.productService.create(createProductDto);
+  create(@Body() dto: CreateProductDto, @CurrentUser() user: RequestUser) {
+    return this.productService.create(dto, this.actor(user));
   }
 
   @Get()
   @Public()
-  @ApiOperation({ summary: 'Get all products' })
-  @ApiQuery({ name: 'brandId', required: false, type: String, description: 'Filter by brand ID' })
-  @ApiQuery({ name: 'category', required: false, type: String, description: 'Filter by category' })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by product name' })
-  @ApiQuery({ name: 'minPrice', required: false, type: Number, description: 'Minimum price' })
-  @ApiQuery({ name: 'maxPrice', required: false, type: Number, description: 'Maximum price' })
-  @ApiQuery({ name: 'skip', required: false, type: Number, description: 'Skip N records' })
-  @ApiQuery({ name: 'take', required: false, type: Number, description: 'Take N records' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of products',
-    type: [ProductWithBrandDto],
-  })
-  async findAll(
+  @ApiOperation({ summary: 'Browse products from verified brands' })
+  @ApiQuery({ name: 'condition', enum: ProductCondition, required: false })
+  @ApiQuery({ name: 'stockStatus', enum: StockStatus, required: false })
+  @ApiQuery({ name: 'region', enum: NigerianRegion, required: false })
+  findPublic(
     @Query('brandId') brandId?: string,
     @Query('category') category?: string,
     @Query('search') search?: string,
     @Query('minPrice') minPrice?: string,
     @Query('maxPrice') maxPrice?: string,
+    @Query('condition') condition?: ProductCondition,
+    @Query('stockStatus') stockStatus?: StockStatus,
+    @Query('rewardEligible') rewardEligible?: string,
+    @Query('region') region?: NigerianRegion,
+    @Query('state') state?: string,
+    @Query('deliveryState') deliveryState?: string,
+    @Query('nationwideDelivery') nationwideDelivery?: string,
+    @Query('pickupAvailable') pickupAvailable?: string,
+    @Query('inspectionAvailable') inspectionAvailable?: string,
+    @Query('featured') featured?: string,
     @Query('skip') skip?: string,
     @Query('take') take?: string,
-  ): Promise<ProductWithBrandDto[]> {
-    return this.productService.findAllWithBrand({
-      brandId,
-      category,
-      search,
-      minPrice: minPrice ? parseFloat(minPrice) : undefined,
-      maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
-      isActive: true,
-      skip: skip ? parseInt(skip, 10) : undefined,
-      take: take ? parseInt(take, 10) : undefined,
+  ) {
+    return this.productService.findPublic({
+      brandId, category, search,
+      minPrice: minPrice ? Number(minPrice) : undefined,
+      maxPrice: maxPrice ? Number(maxPrice) : undefined,
+      condition, stockStatus, rewardEligible: this.boolean(rewardEligible), region, state, deliveryState,
+      nationwideDelivery: this.boolean(nationwideDelivery), pickupAvailable: this.boolean(pickupAvailable),
+      inspectionAvailable: this.boolean(inspectionAvailable), featured: this.boolean(featured),
+      skip: skip ? Number(skip) : undefined, take: take ? Number(take) : undefined,
     });
   }
 
   @Get('categories')
   @Public()
-  @ApiOperation({ summary: 'Get all product categories' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of categories',
-    type: [String],
-  })
-  async getCategories(): Promise<string[]> {
-    return this.productService.getCategories();
-  }
+  getCategories() { return this.productService.getCategories(); }
 
   @Get('category/:category')
   @Public()
-  @ApiOperation({ summary: 'Get products by category' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of products in category',
-    type: [ProductResponseDto],
-  })
-  async findByCategory(@Param('category') category: string): Promise<ProductResponseDto[]> {
-    return this.productService.findByCategory(category);
-  }
-
-  @Get(':id')
-  @Public()
-  @ApiOperation({ summary: 'Get product by ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Product found',
-    type: ProductWithBrandDto,
-  })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  async findOne(@Param('id') id: string): Promise<ProductWithBrandDto> {
-    return this.productService.findOneWithBrand(id);
-  }
+  findByCategory(@Param('category') category: string) { return this.productService.findByCategory(category); }
 
   @Get('brand/:brandId')
   @Public()
-  @ApiOperation({ summary: 'Get products by brand ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of products for brand',
-    type: [ProductResponseDto],
-  })
-  async findByBrand(@Param('brandId') brandId: string): Promise<ProductResponseDto[]> {
-    return this.productService.findByBrand(brandId);
-  }
+  findByBrand(@Param('brandId') brandId: string) { return this.productService.findByBrand(brandId); }
+
+  @Get('slug/:slug')
+  @Public()
+  findBySlug(@Param('slug') slug: string) { return this.productService.findPublicBySlug(slug); }
+
+  @Get(':id')
+  @Public()
+  findById(@Param('id') id: string) { return this.productService.findPublicById(id); }
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
-  @ApiOperation({ summary: 'Update product' })
-  @ApiResponse({
-    status: 200,
-    description: 'Product updated successfully',
-    type: ProductResponseDto,
-  })
-  async update(
-    @Param('id') id: string,
-    @Body() updateProductDto: UpdateProductDto,
-  ): Promise<ProductResponseDto> {
-    return this.productService.update(id, updateProductDto);
+  update(@Param('id') id: string, @Body() dto: UpdateProductDto, @CurrentUser() user: RequestUser) {
+    return this.productService.update(id, dto, this.actor(user));
   }
 
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete product' })
-  @ApiResponse({ status: 204, description: 'Product deleted successfully' })
-  async remove(@Param('id') id: string): Promise<void> {
-    return this.productService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.productService.remove(id, this.actor(user));
+  }
+
+  private actor(user: RequestUser) {
+    return { userId: user.userId, role: user.role as UserRole };
+  }
+
+  private boolean(value?: string) {
+    return value === undefined ? undefined : value === 'true';
   }
 }

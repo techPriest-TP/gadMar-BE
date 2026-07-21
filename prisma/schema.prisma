@@ -58,6 +58,7 @@ model User {
   role                     UserRole                  @default(USER)
   transactions             TransactionIntent[]       @relation("userTransactions")
   rewards                  Reward[]                  @relation("userRewards")
+  brands                   Brand[]                   @relation("brandOwner")
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
   authTokens               AuthToken[]
@@ -72,37 +73,77 @@ model User {
 }
 
 model Brand {
-  id             String    @id @default(auto()) @map("_id") @db.ObjectId
-  name           String
-  logo           String
-  about          String?
-  phone          String
-  whatsappLink   String
-  email          String?
-  isFeatured     Boolean   @default(false)
-  featuredUntil  DateTime?
-  products       Product[]
-  ownerId        String?   @db.ObjectId
-  commissionRate Float     @default(5.0)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                  String       @id @default(auto()) @map("_id") @db.ObjectId
+  name                String
+  slug                String       @unique
+  logo                String?
+  banner              String?
+  about               String?
+  phone               String
+  whatsappLink        String
+  email               String?
+  websiteUrl          String?
+  socialLinks         String[]     @default([])
+  verificationStatus  BrandStatus  @default(PENDING_VERIFICATION)
+  verificationNotes   String?
+  warrantyPolicy      String?
+  returnsPolicy       String?
+  region              NigerianRegion?
+  state               String?
+  lga                 String?
+  deliveryStates      String[]     @default([])
+  pickupLocations     String[]     @default([])
+  inspectionLocations String[]     @default([])
+  nationwideDelivery  Boolean      @default(false)
+  isFeatured          Boolean      @default(false)
+  featuredUntil       DateTime?
+  products            Product[]
+  transactions        TransactionIntent[]
+  ownerId             String?      @db.ObjectId
+  owner               User?        @relation("brandOwner", fields: [ownerId], references: [id])
+  commissionRate      Float        @default(5.0)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
+  @@index([verificationStatus, isFeatured])
+  @@index([region, state])
   @@map("brands")
 }
 
 model Product {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  description String?
-  price       Float
-  images      String[]
-  category    String
-  brandId     String   @db.ObjectId
-  brand       Brand    @relation(fields: [brandId], references: [id])
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  String           @id @default(auto()) @map("_id") @db.ObjectId
+  name                String
+  slug                String           @unique
+  description         String?
+  price               Float
+  oldPrice            Float?
+  images              String[]         @default([])
+  category            String
+  condition           ProductCondition @default(NEW)
+  specifications      Json?
+  stockStatus         StockStatus      @default(IN_STOCK)
+  stockQuantity       Int?
+  warrantyInformation String?
+  returnsInformation  String?
+  rewardEligible      Boolean          @default(true)
+  region              NigerianRegion?
+  state               String?
+  lga                 String?
+  deliveryStates      String[]         @default([])
+  nationwideDelivery  Boolean          @default(false)
+  pickupAvailable     Boolean          @default(false)
+  inspectionAvailable Boolean          @default(false)
+  brandId             String           @db.ObjectId
+  brand               Brand            @relation(fields: [brandId], references: [id])
+  transactions        TransactionIntent[]
+  isFeatured          Boolean          @default(false)
+  isActive            Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
+  @@index([brandId, isActive])
+  @@index([category, condition, stockStatus])
+  @@index([region, state])
   @@map("products")
 }
 
@@ -111,7 +152,9 @@ model TransactionIntent {
   userId      String            @db.ObjectId
   user        User              @relation("userTransactions", fields: [userId], references: [id])
   productId   String            @db.ObjectId
+  product     Product           @relation(fields: [productId], references: [id])
   brandId     String            @db.ObjectId
+  brand       Brand             @relation(fields: [brandId], references: [id])
   status      TransactionStatus @default(PENDING)
   refCode     String            @unique
   amount      Float?
@@ -217,6 +260,36 @@ enum UserRole {
   USER
   BRAND_OWNER
   ADMIN
+}
+
+enum BrandStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  SUSPENDED
+  NEEDS_REVIEW
+}
+
+enum ProductCondition {
+  NEW
+  USED
+  REFURBISHED
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  PREORDER
+}
+
+enum NigerianRegion {
+  NORTH_CENTRAL
+  NORTH_EAST
+  NORTH_WEST
+  SOUTH_EAST
+  SOUTH_SOUTH
+  SOUTH_WEST
 }
 
 enum TransactionStatus {

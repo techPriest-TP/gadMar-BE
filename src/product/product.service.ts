@@ -1,265 +1,173 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BrandStatus, NigerianRegion, ProductCondition, StockStatus, UserRole } from '@prisma/client';
+import { toSlug } from '../common/utils/slug';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductResponseDto, ProductWithBrandDto } from './dto/product-response.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+
+type Actor = { userId: string; role: UserRole };
+type ProductFilters = {
+  brandId?: string; category?: string; search?: string; minPrice?: number; maxPrice?: number;
+  condition?: ProductCondition; stockStatus?: StockStatus; rewardEligible?: boolean;
+  region?: NigerianRegion; state?: string; deliveryState?: string; nationwideDelivery?: boolean;
+  pickupAvailable?: boolean; inspectionAvailable?: boolean; featured?: boolean; skip?: number; take?: number;
+};
 
 @Injectable()
 export class ProductService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async create(createProductDto: CreateProductDto): Promise<ProductResponseDto> {
-    // Verify brand exists
-    const brand = await this.prisma.brand.findUnique({
-      where: { id: createProductDto.brandId },
-    });
-
-    if (!brand) {
-      throw new NotFoundException(`Brand with ID ${createProductDto.brandId} not found`);
+  async create(dto: CreateProductDto, actor: Actor): Promise<ProductResponseDto> {
+    await this.requireBrandAccess(dto.brandId, actor);
+    const data: any = { ...dto, slug: await this.uniqueSlug(dto.name), images: dto.images || [], deliveryStates: dto.deliveryStates || [] };
+    if (actor.role !== UserRole.ADMIN) {
+      delete data.rewardEligible;
+      delete data.isFeatured;
     }
-
-    const product = await this.prisma.product.create({
-      data: createProductDto,
-    });
-
-    return this.mapToProductResponse(product);
+    return this.map(await this.prisma.product.create({ data }));
   }
 
-  async findAll(options?: {
-    brandId?: string;
-    category?: string;
-    search?: string;
-    minPrice?: number;
-    maxPrice?: number;
-    isActive?: boolean;
-    skip?: number;
-    take?: number;
-  }): Promise<ProductResponseDto[]> {
-    const where: any = {};
-
-    if (options?.brandId) {
-      where.brandId = options.brandId;
-    }
-
-    if (options?.category) {
-      where.category = options.category;
-    }
-
-    if (options?.search) {
-      where.name = {
-        contains: options.search,
-        mode: 'insensitive',
-      };
-    }
-
-    if (options?.minPrice !== undefined || options?.maxPrice !== undefined) {
-      where.price = {};
-      if (options.minPrice !== undefined) {
-        where.price.gte = options.minPrice;
-      }
-      if (options.maxPrice !== undefined) {
-        where.price.lte = options.maxPrice;
-      }
-    }
-
-    if (options?.isActive !== undefined) {
-      where.isActive = options.isActive;
-    }
-
+  async findPublic(filters: ProductFilters = {}): Promise<ProductWithBrandDto[]> {
     const products = await this.prisma.product.findMany({
-      where,
-      skip: options?.skip,
-      take: options?.take,
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return products.map(this.mapToProductResponse);
-  }
-
-  async findAllWithBrand(options?: {
-    brandId?: string;
-    category?: string;
-    search?: string;
-    minPrice?: number;
-    maxPrice?: number;
-    isActive?: boolean;
-    skip?: number;
-    take?: number;
-  }): Promise<ProductWithBrandDto[]> {
-    const where: any = {};
-
-    if (options?.brandId) {
-      where.brandId = options.brandId;
-    }
-
-    if (options?.category) {
-      where.category = options.category;
-    }
-
-    if (options?.search) {
-      where.name = {
-        contains: options.search,
-        mode: 'insensitive',
-      };
-    }
-
-    if (options?.minPrice !== undefined || options?.maxPrice !== undefined) {
-      where.price = {};
-      if (options.minPrice !== undefined) {
-        where.price.gte = options.minPrice;
-      }
-      if (options.maxPrice !== undefined) {
-        where.price.lte = options.maxPrice;
-      }
-    }
-
-    if (options?.isActive !== undefined) {
-      where.isActive = options.isActive;
-    }
-
-    const products = await this.prisma.product.findMany({
-      where,
-      include: {
-        brand: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-            whatsappLink: true,
-          },
-        },
+      where: {
+        isActive: true,
+        isFeatured: filters.featured,
+        brandId: filters.brandId,
+        brand: { verificationStatus: BrandStatus.VERIFIED },
+        category: filters.category,
+        name: filters.search ? { contains: filters.search, mode: 'insensitive' } : undefined,
+        price: filters.minPrice !== undefined || filters.maxPrice !== undefined
+          ? { gte: filters.minPrice, lte: filters.maxPrice }
+          : undefined,
+        condition: filters.condition,
+        stockStatus: filters.stockStatus,
+        rewardEligible: filters.rewardEligible,
+        region: filters.region,
+        state: filters.state,
+        deliveryStates: filters.deliveryState ? { has: filters.deliveryState } : undefined,
+        nationwideDelivery: filters.nationwideDelivery,
+        pickupAvailable: filters.pickupAvailable,
+        inspectionAvailable: filters.inspectionAvailable,
       },
-      skip: options?.skip,
-      take: options?.take,
-      orderBy: { createdAt: 'desc' },
+      include: { brand: { select: this.brandSelection } },
+      skip: filters.skip,
+      take: filters.take,
+      orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
     });
-
-    return products.map(this.mapToProductWithBrand);
+    return products.map((product) => this.mapWithBrand(product));
   }
 
-  async findOne(id: string): Promise<ProductResponseDto> {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
-    });
+  async findPublicById(id: string) { return this.findPublicUnique({ id }); }
+  async findPublicBySlug(slug: string) { return this.findPublicUnique({ slug }); }
 
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
-    }
-
-    return this.mapToProductResponse(product);
-  }
-
-  async findOneWithBrand(id: string): Promise<ProductWithBrandDto> {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
-      include: {
-        brand: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-            whatsappLink: true,
-          },
-        },
-      },
-    });
-
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
-    }
-
-    return this.mapToProductWithBrand(product);
-  }
-
-  async findByBrand(brandId: string): Promise<ProductResponseDto[]> {
+  async findByBrand(brandId: string) {
     const products = await this.prisma.product.findMany({
-      where: { brandId },
-      orderBy: { createdAt: 'desc' },
+      where: { brandId, isActive: true, brand: { verificationStatus: BrandStatus.VERIFIED } },
+      orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
     });
-
-    return products.map(this.mapToProductResponse);
+    return products.map((product) => this.map(product));
   }
 
-  async findByCategory(category: string): Promise<ProductResponseDto[]> {
+  async findByCategory(category: string) {
     const products = await this.prisma.product.findMany({
-      where: { category, isActive: true },
-      orderBy: { createdAt: 'desc' },
+      where: { category, isActive: true, brand: { verificationStatus: BrandStatus.VERIFIED } },
+      orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
     });
-
-    return products.map(this.mapToProductResponse);
+    return products.map((product) => this.map(product));
   }
 
-  async getCategories(): Promise<string[]> {
+  async getCategories() {
     const products = await this.prisma.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, brand: { verificationStatus: BrandStatus.VERIFIED } },
       select: { category: true },
       distinct: ['category'],
+      orderBy: { category: 'asc' },
     });
-
-    return products.map((p) => p.category);
+    return products.map(({ category }) => category);
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto): Promise<ProductResponseDto> {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
-    });
-
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+  async update(id: string, dto: UpdateProductDto, actor: Actor) {
+    const product = await this.requireProductAccess(id, actor);
+    const data: any = { ...dto };
+    if (actor.role !== UserRole.ADMIN) {
+      delete data.brandId;
+      delete data.rewardEligible;
+      delete data.isFeatured;
+    } else if (dto.brandId && dto.brandId !== product.brandId) {
+      await this.requireBrand(dto.brandId);
     }
-
-    // Verify brand exists if being updated
-    if (updateProductDto.brandId) {
-      const brand = await this.prisma.brand.findUnique({
-        where: { id: updateProductDto.brandId },
-      });
-
-      if (!brand) {
-        throw new NotFoundException(`Brand with ID ${updateProductDto.brandId} not found`);
-      }
-    }
-
-    const updatedProduct = await this.prisma.product.update({
-      where: { id },
-      data: updateProductDto,
-    });
-
-    return this.mapToProductResponse(updatedProduct);
+    if (dto.name && dto.name !== product.name) data.slug = await this.uniqueSlug(dto.name, id);
+    return this.map(await this.prisma.product.update({ where: { id }, data }));
   }
 
-  async remove(id: string): Promise<void> {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
-    });
-
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
-    }
-
-    await this.prisma.product.delete({
-      where: { id },
-    });
+  async remove(id: string, actor: Actor) {
+    await this.requireProductAccess(id, actor);
+    await this.prisma.product.delete({ where: { id } });
   }
 
-  private mapToProductResponse(product: any): ProductResponseDto {
+  private async findPublicUnique(where: { id?: string; slug?: string }) {
+    const product = await this.prisma.product.findFirst({
+      where: { ...where, isActive: true, brand: { verificationStatus: BrandStatus.VERIFIED } },
+      include: { brand: { select: this.brandSelection } },
+    });
+    if (!product) throw new NotFoundException('Active product from a verified brand not found');
+    return this.mapWithBrand(product);
+  }
+
+  private async requireBrand(id: string) {
+    const brand = await this.prisma.brand.findUnique({ where: { id } });
+    if (!brand) throw new NotFoundException(`Brand with ID ${id} not found`);
+    return brand;
+  }
+
+  private async requireBrandAccess(id: string, actor: Actor) {
+    const brand = await this.requireBrand(id);
+    if (actor.role !== UserRole.ADMIN && brand.ownerId !== actor.userId) {
+      throw new ForbiddenException('You can only manage products for your own brand');
+    }
+    return brand;
+  }
+
+  private async requireProductAccess(id: string, actor: Actor) {
+    const product = await this.prisma.product.findUnique({ where: { id }, include: { brand: true } });
+    if (!product) throw new NotFoundException(`Product with ID ${id} not found`);
+    if (actor.role !== UserRole.ADMIN && product.brand.ownerId !== actor.userId) {
+      throw new ForbiddenException('You can only manage products for your own brand');
+    }
+    return product;
+  }
+
+  private async uniqueSlug(name: string, excludedId?: string) {
+    const base = toSlug(name) || 'product';
+    let slug = base;
+    let suffix = 2;
+    while (await this.prisma.product.findFirst({ where: { slug, id: excludedId ? { not: excludedId } : undefined } })) {
+      slug = `${base}-${suffix++}`;
+    }
+    return slug;
+  }
+
+  private readonly brandSelection = {
+    id: true, name: true, slug: true, logo: true, whatsappLink: true, verificationStatus: true,
+  } as const;
+
+  private map(product: any): ProductResponseDto {
     return {
-      id: product.id,
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      images: product.images,
-      category: product.category,
-      brandId: product.brandId,
-      isActive: product.isActive,
-      createdAt: product.createdAt,
-      updatedAt: product.updatedAt,
+      id: product.id, name: product.name, slug: product.slug, description: product.description,
+      price: product.price, oldPrice: product.oldPrice, images: product.images, category: product.category,
+      condition: product.condition, specifications: product.specifications, stockStatus: product.stockStatus,
+      stockQuantity: product.stockQuantity, warrantyInformation: product.warrantyInformation,
+      returnsInformation: product.returnsInformation, rewardEligible: product.rewardEligible,
+      region: product.region, state: product.state, lga: product.lga, deliveryStates: product.deliveryStates,
+      nationwideDelivery: product.nationwideDelivery, pickupAvailable: product.pickupAvailable,
+      inspectionAvailable: product.inspectionAvailable, brandId: product.brandId,
+      isFeatured: product.isFeatured, isActive: product.isActive,
+      createdAt: product.createdAt, updatedAt: product.updatedAt,
     };
   }
 
-  private mapToProductWithBrand(product: any): ProductWithBrandDto {
-    return {
-      ...this.mapToProductResponse(product),
-      brand: product.brand,
-    };
+  private mapWithBrand(product: any): ProductWithBrandDto {
+    return { ...this.map(product), brand: product.brand };
   }
 }

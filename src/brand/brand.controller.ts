@@ -1,27 +1,15 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-  UseGuards,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { BrandService } from './brand.service';
-import { CreateBrandDto } from './dto/create-brand.dto';
-import { UpdateBrandDto } from './dto/update-brand.dto';
-import { BrandResponseDto, BrandWithStatsDto } from './dto/brand-response.dto';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { BrandStatus, NigerianRegion, UserRole } from '@prisma/client';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/decorators/public.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
+import { RequestUser } from '../common/decorators/user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { Public } from '../common/decorators/public.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { UserRole } from '@prisma/client';
+import { BrandService } from './brand.service';
+import { CreateBrandDto } from './dto/create-brand.dto';
+import { ReviewBrandDto, UpdateBrandDto } from './dto/update-brand.dto';
 
 @ApiTags('Brands')
 @ApiBearerAuth()
@@ -31,144 +19,96 @@ export class BrandController {
   constructor(private readonly brandService: BrandService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new brand (Admin only)' })
-  @ApiResponse({
-    status: 201,
-    description: 'Brand created successfully',
-    type: BrandResponseDto,
-  })
-  async create(@Body() createBrandDto: CreateBrandDto): Promise<BrandResponseDto> {
-    return this.brandService.create(createBrandDto);
+  @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiOperation({ summary: 'Create a brand or submit a brand for verification' })
+  create(@Body() dto: CreateBrandDto, @CurrentUser() user: RequestUser) {
+    return this.brandService.create(dto, this.actor(user));
   }
 
   @Get()
   @Public()
-  @ApiOperation({ summary: 'Get all brands' })
-  @ApiQuery({ name: 'featured', required: false, type: Boolean, description: 'Filter by featured brands' })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by brand name' })
-  @ApiQuery({ name: 'skip', required: false, type: Number, description: 'Skip N records' })
-  @ApiQuery({ name: 'take', required: false, type: Number, description: 'Take N records' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of brands',
-    type: [BrandResponseDto],
-  })
-  async findAll(
+  @ApiQuery({ name: 'region', enum: NigerianRegion, required: false })
+  @ApiQuery({ name: 'state', required: false })
+  @ApiQuery({ name: 'deliveryState', required: false })
+  findPublic(
     @Query('featured') featured?: string,
     @Query('search') search?: string,
+    @Query('region') region?: NigerianRegion,
+    @Query('state') state?: string,
+    @Query('deliveryState') deliveryState?: string,
+    @Query('nationwideDelivery') nationwideDelivery?: string,
     @Query('skip') skip?: string,
     @Query('take') take?: string,
-  ): Promise<BrandResponseDto[]> {
-    return this.brandService.findAll({
-      featured: featured !== undefined ? featured === 'true' : undefined,
-      search,
-      skip: skip ? parseInt(skip, 10) : undefined,
-      take: take ? parseInt(take, 10) : undefined,
+  ) {
+    return this.brandService.findPublic({
+      featured: this.boolean(featured), search, region, state, deliveryState,
+      nationwideDelivery: this.boolean(nationwideDelivery),
+      skip: skip ? Number(skip) : undefined, take: take ? Number(take) : undefined,
     });
   }
 
   @Get('featured')
   @Public()
-  @ApiOperation({ summary: 'Get featured brands' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of featured brands',
-    type: [BrandResponseDto],
-  })
-  async findFeatured(): Promise<BrandResponseDto[]> {
-    return this.brandService.findFeatured();
+  findFeatured() { return this.brandService.findFeatured(); }
+
+  @Get('admin/all')
+  @Roles(UserRole.ADMIN)
+  findAllAdmin(@Query('status') status?: BrandStatus) {
+    return this.brandService.findAllAdmin(status);
   }
 
   @Get('my-brands')
   @Roles(UserRole.BRAND_OWNER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get brands owned by current user' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of user brands',
-    type: [BrandResponseDto],
-  })
-  async findMyBrands(@CurrentUser('userId') userId: string): Promise<BrandResponseDto[]> {
-    return this.brandService.findByOwner(userId);
+  findMine(@CurrentUser('userId') userId: string) { return this.brandService.findByOwner(userId); }
+
+  @Get('slug/:slug/store')
+  @Public()
+  getStorefront(@Param('slug') slug: string) { return this.brandService.getStorefront(slug); }
+
+  @Get('slug/:slug')
+  @Public()
+  findBySlug(@Param('slug') slug: string) { return this.brandService.findPublicBySlug(slug); }
+
+  @Get(':id/stats')
+  @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  getStats(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.brandService.getBrandStats(id, this.actor(user));
   }
 
   @Get(':id')
   @Public()
-  @ApiOperation({ summary: 'Get brand by ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Brand found',
-    type: BrandResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Brand not found' })
-  async findOne(@Param('id') id: string): Promise<BrandResponseDto> {
-    return this.brandService.findOne(id);
-  }
-
-  @Get(':id/stats')
-  @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
-  @ApiOperation({ summary: 'Get brand statistics' })
-  @ApiResponse({
-    status: 200,
-    description: 'Brand statistics',
-    type: BrandWithStatsDto,
-  })
-  async getBrandStats(@Param('id') id: string): Promise<BrandWithStatsDto> {
-    return this.brandService.getBrandStats(id);
-  }
+  findById(@Param('id') id: string) { return this.brandService.findPublicById(id); }
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
-  @ApiOperation({ summary: 'Update brand' })
-  @ApiResponse({
-    status: 200,
-    description: 'Brand updated successfully',
-    type: BrandResponseDto,
-  })
-  async update(
-    @Param('id') id: string,
-    @Body() updateBrandDto: UpdateBrandDto,
-  ): Promise<BrandResponseDto> {
-    return this.brandService.update(id, updateBrandDto);
+  update(@Param('id') id: string, @Body() dto: UpdateBrandDto, @CurrentUser() user: RequestUser) {
+    return this.brandService.update(id, dto, this.actor(user));
   }
 
-  @Delete(':id')
+  @Patch(':id/verification')
   @Roles(UserRole.ADMIN)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete brand (Admin only)' })
-  @ApiResponse({ status: 204, description: 'Brand deleted successfully' })
-  async remove(@Param('id') id: string): Promise<void> {
-    return this.brandService.remove(id);
-  }
+  review(@Param('id') id: string, @Body() dto: ReviewBrandDto) { return this.brandService.review(id, dto); }
 
   @Post(':id/featured')
   @Roles(UserRole.ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Set brand as featured (Admin only)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Brand set as featured',
-    type: BrandResponseDto,
-  })
-  async setFeatured(
-    @Param('id') id: string,
-    @Query('until') until?: string,
-  ): Promise<BrandResponseDto> {
-    const featuredUntil = until ? new Date(until) : undefined;
-    return this.brandService.setFeatured(id, featuredUntil);
+  setFeatured(@Param('id') id: string, @Query('until') until?: string) {
+    return this.brandService.setFeatured(id, until ? new Date(until) : undefined);
   }
 
   @Delete(':id/featured')
   @Roles(UserRole.ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Remove brand from featured (Admin only)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Brand removed from featured',
-    type: BrandResponseDto,
-  })
-  async removeFeatured(@Param('id') id: string): Promise<BrandResponseDto> {
-    return this.brandService.removeFeatured(id);
+  removeFeatured(@Param('id') id: string) { return this.brandService.removeFeatured(id); }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id') id: string) { return this.brandService.remove(id); }
+
+  private actor(user: RequestUser) {
+    return { userId: user.userId, role: user.role as UserRole };
+  }
+
+  private boolean(value?: string) {
+    return value === undefined ? undefined : value === 'true';
   }
 }

@@ -1,9 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { NigerianRegion, ProductCondition, StockStatus } from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
-  IsNotEmpty,
+  IsEnum,
+  IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUrl,
@@ -11,44 +14,27 @@ import {
 } from 'class-validator';
 
 export class CreateProductDto {
-  @ApiProperty({ example: 'MacBook Pro 16"', description: 'Product name' })
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @ApiProperty({ example: 'Latest M3 chip, 16GB RAM, 512GB SSD...', description: 'Product description', required: false })
-  @IsString()
-  @IsOptional()
-  description?: string;
-
-  @ApiProperty({ example: 2500000, description: 'Product price in NGN' })
-  @IsNumber()
-  @Min(0)
-  @IsNotEmpty()
-  price: number;
-
-  @ApiProperty({
-    example: ['https://example.com/image1.jpg', 'https://example.com/image2.jpg'],
-    description: 'Product image URLs',
-    type: [String],
-  })
-  @IsArray()
-  @IsUrl({}, { each: true })
-  @IsOptional()
-  images?: string[];
-
-  @ApiProperty({ example: 'Laptops', description: 'Product category' })
-  @IsString()
-  @IsNotEmpty()
-  category: string;
-
-  @ApiProperty({ example: 'brand-id', description: 'Brand ID' })
-  @IsString()
-  @IsNotEmpty()
-  brandId: string;
-
-  @ApiProperty({ example: true, description: 'Is product active', required: false })
-  @IsBoolean()
-  @IsOptional()
-  isActive?: boolean;
+  @ApiProperty({ example: 'iPhone 15 Pro Max' }) @IsString() name: string;
+  @ApiProperty({ required: false }) @IsString() @IsOptional() description?: string;
+  @ApiProperty({ example: 1500000 }) @IsNumber() @Min(0) price: number;
+  @ApiProperty({ required: false }) @IsNumber() @Min(0) @IsOptional() oldPrice?: number;
+  @ApiProperty({ type: [String], required: false }) @IsArray() @IsUrl({}, { each: true }) @IsOptional() images?: string[];
+  @ApiProperty({ example: 'Smartphones' }) @IsString() category: string;
+  @ApiProperty({ enum: ProductCondition, required: false }) @IsEnum(ProductCondition) @IsOptional() condition?: ProductCondition;
+  @ApiProperty({ required: false, type: Object }) @IsObject() @IsOptional() specifications?: Record<string, unknown>;
+  @ApiProperty({ enum: StockStatus, required: false }) @IsEnum(StockStatus) @IsOptional() stockStatus?: StockStatus;
+  @ApiProperty({ required: false }) @IsInt() @Min(0) @IsOptional() stockQuantity?: number;
+  @ApiProperty({ required: false }) @IsString() @IsOptional() warrantyInformation?: string;
+  @ApiProperty({ required: false }) @IsString() @IsOptional() returnsInformation?: string;
+  @ApiProperty({ required: false }) @IsBoolean() @IsOptional() rewardEligible?: boolean;
+  @ApiProperty({ enum: NigerianRegion, required: false }) @IsEnum(NigerianRegion) @IsOptional() region?: NigerianRegion;
+  @ApiProperty({ required: false }) @IsString() @IsOptional() state?: string;
+  @ApiProperty({ required: false }) @IsString() @IsOptional() lga?: string;
+  @ApiProperty({ type: [String], required: false }) @IsArray() @IsString({ each: true }) @IsOptional() deliveryStates?: string[];
+  @ApiProperty({ required: false }) @IsBoolean() @IsOptional() nationwideDelivery?: boolean;
+  @ApiProperty({ required: false }) @IsBoolean() @IsOptional() pickupAvailable?: boolean;
+  @ApiProperty({ required: false }) @IsBoolean() @IsOptional() inspectionAvailable?: boolean;
+  @ApiProperty() @IsString() brandId: string;
+  @ApiProperty({ required: false }) @IsBoolean() @IsOptional() isFeatured?: boolean;
+  @ApiProperty({ required: false }) @IsBoolean() @IsOptional() isActive?: boolean;
 }

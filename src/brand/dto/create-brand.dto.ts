@@ -1,60 +1,36 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { NigerianRegion } from '@prisma/client';
 import {
+  IsArray,
   IsBoolean,
-  IsNotEmpty,
-  IsNumber,
+  IsEmail,
+  IsEnum,
   IsOptional,
   IsString,
   IsUrl,
 } from 'class-validator';
 
 export class CreateBrandDto {
-  @ApiProperty({ example: 'Apple', description: 'Brand name' })
+  @ApiProperty({ example: 'Oico Techs' })
   @IsString()
-  @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: 'https://example.com/logo.png', description: 'Brand logo URL', required: false })
-  @IsUrl()
-  @IsOptional()
-  logo?: string;
-
-  @ApiProperty({ example: 'Premium technology products...', description: 'Brand description', required: false })
-  @IsString()
-  @IsOptional()
-  about?: string;
-
-  @ApiProperty({ example: '+2348012345678', description: 'Brand contact phone' })
-  @IsString()
-  @IsNotEmpty()
-  phone: string;
-
-  @ApiProperty({ example: 'https://wa.me/2348012345678', description: 'WhatsApp link' })
-  @IsUrl()
-  @IsNotEmpty()
-  whatsappLink: string;
-
-  @ApiProperty({ example: 'brand@example.com', description: 'Brand email', required: false })
-  @IsString()
-  @IsOptional()
-  email?: string;
-
-  @ApiProperty({ example: false, description: 'Is featured brand', required: false })
-  @IsBoolean()
-  @IsOptional()
-  isFeatured?: boolean;
-
-  @ApiProperty({ example: '2024-12-31T23:59:59Z', description: 'Featured until date', required: false })
-  @IsOptional()
-  featuredUntil?: Date;
-
-  @ApiProperty({ example: 5.0, description: 'Commission rate percentage', required: false })
-  @IsNumber()
-  @IsOptional()
-  commissionRate?: number;
-
-  @ApiProperty({ example: 'user-id', description: 'Brand owner user ID', required: false })
-  @IsString()
-  @IsOptional()
-  ownerId?: string;
+  @ApiProperty({ required: false }) @IsUrl() @IsOptional() logo?: string;
+  @ApiProperty({ required: false }) @IsUrl() @IsOptional() banner?: string;
+  @ApiProperty({ required: false }) @IsString() @IsOptional() about?: string;
+  @ApiProperty({ example: '+2348012345678' }) @IsString() phone: string;
+  @ApiProperty({ example: 'https://wa.me/2348012345678' }) @IsUrl() whatsappLink: string;
+  @ApiProperty({ required: false }) @IsEmail() @IsOptional() email?: string;
+  @ApiProperty({ required: false }) @IsUrl() @IsOptional() websiteUrl?: string;
+  @ApiProperty({ type: [String], required: false }) @IsArray() @IsUrl({}, { each: true }) @IsOptional() socialLinks?: string[];
+  @ApiProperty({ required: false }) @IsString() @IsOptional() warrantyPolicy?: string;
+  @ApiProperty({ required: false }) @IsString() @IsOptional() returnsPolicy?: string;
+  @ApiProperty({ enum: NigerianRegion, required: false }) @IsEnum(NigerianRegion) @IsOptional() region?: NigerianRegion;
+  @ApiProperty({ required: false }) @IsString() @IsOptional() state?: string;
+  @ApiProperty({ required: false }) @IsString() @IsOptional() lga?: string;
+  @ApiProperty({ type: [String], required: false }) @IsArray() @IsString({ each: true }) @IsOptional() deliveryStates?: string[];
+  @ApiProperty({ type: [String], required: false }) @IsArray() @IsString({ each: true }) @IsOptional() pickupLocations?: string[];
+  @ApiProperty({ type: [String], required: false }) @IsArray() @IsString({ each: true }) @IsOptional() inspectionLocations?: string[];
+  @ApiProperty({ required: false }) @IsBoolean() @IsOptional() nationwideDelivery?: boolean;
+  @ApiProperty({ required: false, description: 'Admin may assign a brand owner' }) @IsString() @IsOptional() ownerId?: string;
 }
