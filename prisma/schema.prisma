@@ -57,6 +57,7 @@ model User {
   isVerified               Boolean                   @default(false)
   role                     UserRole                  @default(USER)
   transactions             TransactionIntent[]       @relation("userTransactions")
+  purchaseBatches          PurchaseBatch[]            @relation("userPurchaseBatches")
   rewards                  Reward[]                  @relation("userRewards")
   brands                   Brand[]                   @relation("brandOwner")
   createdAt                DateTime                  @default(now())
@@ -149,21 +150,63 @@ model Product {
 
 model TransactionIntent {
   id          String            @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String            @db.ObjectId
-  user        User              @relation("userTransactions", fields: [userId], references: [id])
-  productId   String            @db.ObjectId
-  product     Product           @relation(fields: [productId], references: [id])
+  batchId     String            @db.ObjectId
+  batch       PurchaseBatch     @relation(fields: [batchId], references: [id])
+  userId      String?           @db.ObjectId
+  user        User?             @relation("userTransactions", fields: [userId], references: [id])
+  productId   String?           @db.ObjectId
+  product     Product?          @relation(fields: [productId], references: [id])
   brandId     String            @db.ObjectId
   brand       Brand             @relation(fields: [brandId], references: [id])
   status      TransactionStatus @default(PENDING)
   refCode     String            @unique
   amount      Float?
+  finalAmount Float?
   commission  Float?
   completedAt DateTime?
+  contactedAt DateTime?
+  expiresAt   DateTime?
+  whatsappMessage String
+  whatsappUrl String
+  items       TransactionIntentItem[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
   @@map("transaction_intents")
+}
+
+model PurchaseBatch {
+  id         String              @id @default(auto()) @map("_id") @db.ObjectId
+  batchCode  String              @unique
+  userId     String?             @db.ObjectId
+  user       User?               @relation("userPurchaseBatches", fields: [userId], references: [id])
+  guestName  String?
+  guestPhone String?
+  guestEmail String?
+  intents    TransactionIntent[]
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@map("purchase_batches")
+}
+
+model TransactionIntentItem {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  transactionId     String            @db.ObjectId
+  transaction       TransactionIntent @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  productId         String            @db.ObjectId
+  productName       String
+  productSlug       String
+  productImage      String?
+  unitPrice         Float
+  quantity          Int
+  rewardEligible    Boolean
+  brandId           String            @db.ObjectId
+  brandName         String
+  createdAt         DateTime          @default(now())
+
+  @@index([transactionId])
+  @@map("transaction_intent_items")
 }
 
 model Reward {
@@ -294,7 +337,9 @@ enum NigerianRegion {
 
 enum TransactionStatus {
   PENDING
-  COMPLETED
+  CONTACTED
+  NEGOTIATING
+  CONFIRMED
   CANCELLED
   EXPIRED
 }

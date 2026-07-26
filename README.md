@@ -71,6 +71,55 @@ yarn build
 yarn start:prod
 ```
 
+## Render development deployment
+
+The repository includes a `render.yaml` Blueprint for a free Render web
+service. It does not configure a cron job or an external keep-alive service.
+
+1. Push the repository to your Git provider.
+2. In Render, create a new Blueprint and select this repository.
+3. Provide the environment variables marked as requiring manual values.
+4. Deploy the `gadmar-api` service.
+
+Render runs these commands:
+
+```bash
+yarn install && yarn build
+yarn start:prod
+```
+
+The build generates Prisma Client before compiling NestJS. The application
+binds to Render's `PORT` on `0.0.0.0`.
+
+After deployment:
+
+```text
+Health:  https://<service-name>.onrender.com/api/v1/health
+Swagger: https://<service-name>.onrender.com/api/docs
+API:     https://<service-name>.onrender.com/api/v1
+```
+
+Required Render variables:
+
+```text
+DATABASE_URL
+JWT_SECRET
+JWT_REFRESH_SECRET
+FRONTEND_URL
+POSTMARK_URL
+POSTMARK_TOKEN
+POSTMARK_FROM_EMAIL
+```
+
+Set `FRONTEND_URL` to the frontend origin allowed by CORS. `DATABASE_URL`
+must point to a reachable MongoDB deployment. Render's free filesystem is
+ephemeral, so uploaded media must remain in external storage such as
+Cloudinary.
+
+The free web service can sleep during inactivity and Render can restart it.
+Agenda stores queued email jobs in MongoDB and now shuts down cleanly when
+the NestJS process receives a termination signal.
+
 ## Verification
 
 ```bash

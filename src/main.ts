@@ -11,6 +11,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
+  app.enableShutdownHooks();
   app.use(helmet());
   app.use(compression());
   app.enableCors({
@@ -48,7 +49,7 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = configService.get<number>('PORT', 3001);
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   logger.log(`GadMar API is running on http://localhost:${port}/api/v1`);
   logger.log(`Swagger documentation: http://localhost:${port}/api/docs`);
