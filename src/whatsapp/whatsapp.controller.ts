@@ -1,16 +1,15 @@
 import { Controller, Post, Body, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { WhatsAppService, WhatsAppMessageData } from './whatsapp.service';
+import { WhatsAppService, WhatsAppCartItem } from './whatsapp.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Public } from '../common/decorators/public.decorator';
 
 class GenerateWhatsAppUrlDto {
   phoneNumber: string;
-  productName: string;
-  productPrice: number;
+  brandName: string;
+  items: WhatsAppCartItem[];
   refCode: string;
-  productUrl?: string;
   customMessage?: string;
 }
 
@@ -48,13 +47,13 @@ export class WhatsAppController {
     @Query('productName') productName: string,
     @Query('productPrice') productPrice: string,
     @Query('refCode') refCode: string,
-    @Query('productUrl') productUrl?: string,
   ) {
     const message = this.whatsappService.generatePreFilledMessage(
-      productName,
-      parseFloat(productPrice) || 0,
-      refCode,
-      productUrl,
+      {
+        brandName: 'Seller',
+        refCode,
+        items: [{ productName, unitPrice: parseFloat(productPrice) || 0, quantity: 1 }],
+      },
     );
     return { message };
   }

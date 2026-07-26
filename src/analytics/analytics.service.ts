@@ -121,7 +121,7 @@ export class AnalyticsService {
         }),
         this.prisma.transactionIntent.aggregate({
           where: {
-            status: TransactionStatus.COMPLETED,
+            status: TransactionStatus.CONFIRMED,
             completedAt: {
               gte: monthStart,
               lte: monthEnd,
@@ -175,7 +175,7 @@ export class AnalyticsService {
     const brandStats = await Promise.all(
       brands.map(async (brand) => {
         const transactionStats = await this.prisma.transactionIntent.aggregate({
-          where: { brandId: brand.id, status: TransactionStatus.COMPLETED },
+          where: { brandId: brand.id, status: TransactionStatus.CONFIRMED },
           _count: true,
           _sum: { amount: true },
         });
@@ -211,7 +211,7 @@ export class AnalyticsService {
     const productStats = await Promise.all(
       products.map(async (product) => {
         const transactionStats = await this.prisma.transactionIntent.aggregate({
-          where: { productId: product.id, status: TransactionStatus.COMPLETED },
+          where: { productId: product.id, status: TransactionStatus.CONFIRMED },
           _count: true,
           _sum: { amount: true },
         });
@@ -245,7 +245,7 @@ export class AnalyticsService {
       users.map(async (user) => {
         const [transactionStats, rewardStats] = await Promise.all([
           this.prisma.transactionIntent.aggregate({
-            where: { userId: user.id, status: TransactionStatus.COMPLETED },
+            where: { userId: user.id, status: TransactionStatus.CONFIRMED },
             _count: true,
             _sum: { amount: true },
           }),
@@ -286,7 +286,7 @@ export class AnalyticsService {
     const commissions = await this.prisma.transactionIntent.groupBy({
       by: ['brandId'],
       where: {
-        status: TransactionStatus.COMPLETED,
+        status: TransactionStatus.CONFIRMED,
         ...dateFilter,
       },
       _sum: {
@@ -321,10 +321,10 @@ export class AnalyticsService {
     const [total, pending, completed, cancelled, sales] = await Promise.all([
       this.prisma.transactionIntent.count(),
       this.prisma.transactionIntent.count({ where: { status: TransactionStatus.PENDING } }),
-      this.prisma.transactionIntent.count({ where: { status: TransactionStatus.COMPLETED } }),
+      this.prisma.transactionIntent.count({ where: { status: TransactionStatus.CONFIRMED } }),
       this.prisma.transactionIntent.count({ where: { status: TransactionStatus.CANCELLED } }),
       this.prisma.transactionIntent.aggregate({
-        where: { status: TransactionStatus.COMPLETED },
+        where: { status: TransactionStatus.CONFIRMED },
         _sum: { amount: true, commission: true },
       }),
     ]);

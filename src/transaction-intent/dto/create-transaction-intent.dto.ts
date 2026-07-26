@@ -1,20 +1,34 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsArray, IsEmail, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
-export class CreateTransactionIntentDto {
-  @ApiProperty({ example: 'product-id', description: 'Product ID' })
+export class PurchaseIntentItemDto {
+  @ApiProperty({ example: 'product-id' })
   @IsString()
-  @IsNotEmpty()
   productId: string;
 
-  @ApiProperty({ example: 'brand-id', description: 'Brand ID' })
-  @IsString()
-  @IsNotEmpty()
-  brandId: string;
+  @ApiProperty({ example: 1, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  quantity: number;
+}
 
-  @ApiProperty({ example: 2500000, description: 'Transaction amount', required: false })
-  @IsNumber()
-  @Min(0)
+export class CreateTransactionIntentDto {
+  @ApiProperty({ type: [PurchaseIntentItemDto], description: 'Cart items; they are grouped into one intent per brand.' })
+  @IsArray()
+  items: PurchaseIntentItemDto[];
+
+  @ApiPropertyOptional({ example: 'Ada Lovelace', description: 'Required for guest checkout.' })
   @IsOptional()
-  amount?: number;
+  @IsString()
+  guestName?: string;
+
+  @ApiPropertyOptional({ example: '+2348012345678', description: 'Required for guest checkout.' })
+  @IsOptional()
+  @IsString()
+  guestPhone?: string;
+
+  @ApiPropertyOptional({ example: 'ada@example.com' })
+  @IsOptional()
+  @IsEmail()
+  guestEmail?: string;
 }

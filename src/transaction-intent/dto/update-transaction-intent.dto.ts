@@ -1,20 +1,24 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, Min } from 'class-validator';
 import { TransactionStatus } from '@prisma/client';
 
 export class UpdateTransactionIntentDto {
-  @ApiProperty({ example: 'COMPLETED', description: 'Transaction status', enum: TransactionStatus })
-  @IsString()
+  @ApiProperty({
+    example: 'CONFIRMED',
+    description: 'Purchase intent status',
+    enum: TransactionStatus,
+  })
+  @IsEnum(TransactionStatus)
   @IsOptional()
   status?: TransactionStatus;
 
-  @ApiProperty({ example: 2500000, description: 'Transaction amount', required: false })
+  @ApiProperty({
+    example: 2500000,
+    description: 'Required when confirming the final agreed amount',
+    required: false,
+  })
   @IsNumber()
+  @Min(0.01)
   @IsOptional()
-  amount?: number;
-
-  @ApiProperty({ example: 125000, description: 'Commission amount', required: false })
-  @IsNumber()
-  @IsOptional()
-  commission?: number;
+  finalAmount?: number;
 }

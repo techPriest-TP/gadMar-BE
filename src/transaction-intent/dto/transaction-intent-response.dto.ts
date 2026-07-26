@@ -1,57 +1,44 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TransactionStatus } from '@prisma/client';
 
+export class TransactionIntentItemResponseDto {
+  @ApiProperty() productId: string;
+  @ApiProperty() productName: string;
+  @ApiProperty() productSlug: string;
+  @ApiPropertyOptional() productImage?: string;
+  @ApiProperty() unitPrice: number;
+  @ApiProperty() quantity: number;
+  @ApiProperty() rewardEligible: boolean;
+}
+
 export class TransactionIntentResponseDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  userId: string;
-
-  @ApiProperty()
-  productId: string;
-
-  @ApiProperty()
-  brandId: string;
-
-  @ApiProperty({ enum: TransactionStatus })
-  status: TransactionStatus;
-
-  @ApiProperty()
-  refCode: string;
-
-  @ApiProperty({ required: false })
-  amount?: number;
-
-  @ApiProperty({ required: false })
-  commission?: number;
-
-  @ApiProperty({ required: false })
-  completedAt?: Date;
-
-  @ApiProperty()
-  createdAt: Date;
-
-  @ApiProperty()
-  updatedAt: Date;
+  @ApiProperty() id: string;
+  @ApiProperty() batchId: string;
+  @ApiPropertyOptional() userId?: string;
+  @ApiProperty() brandId: string;
+  @ApiProperty({ enum: TransactionStatus }) status: TransactionStatus;
+  @ApiProperty() refCode: string;
+  @ApiProperty() amount: number;
+  @ApiPropertyOptional() finalAmount?: number;
+  @ApiProperty() whatsappMessage: string;
+  @ApiProperty() whatsappUrl: string;
+  @ApiPropertyOptional() contactedAt?: Date;
+  @ApiProperty() createdAt: Date;
+  @ApiProperty() updatedAt: Date;
 }
 
 export class TransactionIntentWithDetailsDto extends TransactionIntentResponseDto {
-  @ApiProperty({ description: 'Product information' })
-  product: {
-    id: string;
-    name: string;
-    price: number;
-    images: string[];
-  };
+  @ApiProperty({ type: [TransactionIntentItemResponseDto] }) items: TransactionIntentItemResponseDto[];
+  @ApiProperty() brand: { id: string; name: string; whatsappLink: string };
+}
 
-  @ApiProperty({ description: 'Brand information' })
-  brand: {
-    id: string;
-    name: string;
-    whatsappLink: string;
-  };
-
-  @ApiProperty({ description: 'WhatsApp URL for transaction' })
-  whatsappUrl: string;
+export class PurchaseBatchResponseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() batchCode: string;
+  @ApiPropertyOptional() userId?: string;
+  @ApiPropertyOptional() guestName?: string;
+  @ApiPropertyOptional() guestPhone?: string;
+  @ApiPropertyOptional() guestEmail?: string;
+  @ApiProperty({ type: [TransactionIntentWithDetailsDto] }) intents: TransactionIntentWithDetailsDto[];
+  @ApiProperty() createdAt: Date;
 }

@@ -18,7 +18,10 @@ export class CommissionService {
     private prisma: PrismaService,
     private configService: ConfigService,
   ) {
-    this.defaultCommissionRate = this.configService.get<number>('DEFAULT_COMMISSION_RATE', 5.0);
+    this.defaultCommissionRate = this.configService.get<number>(
+      'DEFAULT_COMMISSION_RATE',
+      5.0,
+    );
   }
 
   calculateCommission(
@@ -44,15 +47,18 @@ export class CommissionService {
     });
 
     if (!transaction) {
-      throw new NotFoundException(`Transaction with ID ${transactionId} not found`);
+      throw new NotFoundException(
+        `Transaction with ID ${transactionId} not found`,
+      );
     }
 
-    if (transaction.status !== TransactionStatus.COMPLETED) {
-      throw new Error('Commission can only be created for completed transactions');
+    if (transaction.status !== TransactionStatus.CONFIRMED) {
+      throw new Error('Commission can only be created for confirmed purchases');
     }
 
-    const commissionRate = transaction.brand?.commissionRate || this.defaultCommissionRate;
-    const amount = transaction.amount || 0;
+    const commissionRate =
+      transaction.brand?.commissionRate || this.defaultCommissionRate;
+    const amount = transaction.finalAmount || transaction.amount || 0;
     const commissionAmount = (amount * commissionRate) / 100;
 
     const commission = await this.prisma.commission.create({
@@ -187,9 +193,15 @@ export class CommissionService {
       waivedAmount,
     ] = await Promise.all([
       this.prisma.commission.count({ where }),
-      this.prisma.commission.count({ where: { ...where, status: CommissionStatus.PENDING } }),
-      this.prisma.commission.count({ where: { ...where, status: CommissionStatus.PAID } }),
-      this.prisma.commission.count({ where: { ...where, status: CommissionStatus.WAIVED } }),
+      this.prisma.commission.count({
+        where: { ...where, status: CommissionStatus.PENDING },
+      }),
+      this.prisma.commission.count({
+        where: { ...where, status: CommissionStatus.PAID },
+      }),
+      this.prisma.commission.count({
+        where: { ...where, status: CommissionStatus.WAIVED },
+      }),
       this.prisma.commission.aggregate({ where, _sum: { amount: true } }),
       this.prisma.commission.aggregate({
         where: { ...where, status: CommissionStatus.PENDING },
@@ -217,7 +229,11 @@ export class CommissionService {
     };
   }
 
-  async getBrandCommissionReport(brandId: string, startDate?: Date, endDate?: Date) {
+  async getBrandCommissionReport(
+    brandId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
     const dateFilter: any = {};
     if (startDate || endDate) {
       dateFilter.createdAt = {};
@@ -253,11 +269,15 @@ export class CommissionService {
     });
 
     if (!transaction) {
-      throw new NotFoundException(`Transaction with ID ${transactionId} not found`);
+      throw new NotFoundException(
+        `Transaction with ID ${transactionId} not found`,
+      );
     }
 
-    if (transaction.status !== TransactionStatus.COMPLETED) {
-      throw new Error('Commission can only be processed for completed transactions');
+    if (transaction.status !== TransactionStatus.CONFIRMED) {
+      throw new Error(
+        'Commission can only be processed for confirmed purchases',
+      );
     }
 
     // Check if commission already exists

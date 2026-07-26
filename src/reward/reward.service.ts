@@ -3,7 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRewardDto } from './dto/create-reward.dto';
 import { UpdateRewardDto } from './dto/update-reward.dto';
-import { RewardResponseDto, RewardStatsDto, UserStreakDto } from './dto/reward-response.dto';
+import {
+  RewardResponseDto,
+  RewardStatsDto,
+  UserStreakDto,
+} from './dto/reward-response.dto';
 import { RewardStatus, RewardType, TransactionStatus } from '@prisma/client';
 
 @Injectable()
@@ -73,7 +77,10 @@ export class RewardService {
     return rewards.map(this.mapToRewardResponse);
   }
 
-  async update(id: string, updateDto: UpdateRewardDto): Promise<RewardResponseDto> {
+  async update(
+    id: string,
+    updateDto: UpdateRewardDto,
+  ): Promise<RewardResponseDto> {
     const reward = await this.prisma.reward.findUnique({
       where: { id },
     });
@@ -85,7 +92,10 @@ export class RewardService {
     const data: any = { ...updateDto };
 
     // Set claimedAt if status is being changed to CLAIMED
-    if (updateDto.status === RewardStatus.CLAIMED && reward.status !== RewardStatus.CLAIMED) {
+    if (
+      updateDto.status === RewardStatus.CLAIMED &&
+      reward.status !== RewardStatus.CLAIMED
+    ) {
       data.claimedAt = new Date();
     }
 
@@ -148,8 +158,10 @@ export class RewardService {
     const transactions = await this.prisma.transactionIntent.findMany({
       where: {
         userId,
-        status: TransactionStatus.COMPLETED,
+        status: TransactionStatus.CONFIRMED,
+        items: { some: { rewardEligible: true } },
       },
+      distinct: ['batchId'],
       orderBy: { createdAt: 'desc' },
     });
 
@@ -187,15 +199,23 @@ export class RewardService {
 
     // Check if current streak is still valid (last transaction within 30 days)
     if (lastPurchaseDate) {
-      const daysSinceLastPurchase = (now.getTime() - lastPurchaseDate.getTime()) / (24 * 60 * 60 * 1000);
+      const daysSinceLastPurchase =
+        (now.getTime() - lastPurchaseDate.getTime()) / (24 * 60 * 60 * 1000);
       if (daysSinceLastPurchase <= 30) {
         currentStreak = tempStreak;
       }
     }
 
-    const streakThreshold = this.configService.get<number>('STREAK_THRESHOLD', 3);
-    const nextRewardAt = Math.max(0, streakThreshold - (currentStreak % streakThreshold));
-    const isEligibleForReward = currentStreak > 0 && currentStreak % streakThreshold === 0;
+    const streakThreshold = this.configService.get<number>(
+      'STREAK_THRESHOLD',
+      3,
+    );
+    const nextRewardAt = Math.max(
+      0,
+      streakThreshold - (currentStreak % streakThreshold),
+    );
+    const isEligibleForReward =
+      currentStreak > 0 && currentStreak % streakThreshold === 0;
 
     return {
       currentStreak,
@@ -206,12 +226,20 @@ export class RewardService {
     };
   }
 
-  async checkAndIssueStreakReward(userId: string): Promise<RewardResponseDto | null> {
+  async checkAndIssueStreakReward(
+    userId: string,
+  ): Promise<RewardResponseDto | null> {
     const streak = await this.getUserStreak(userId);
-    const streakThreshold = this.configService.get<number>('STREAK_THRESHOLD', 3);
+    const streakThreshold = this.configService.get<number>(
+      'STREAK_THRESHOLD',
+      3,
+    );
 
     // Check if user has reached streak threshold
-    if (streak.currentStreak > 0 && streak.currentStreak % streakThreshold === 0) {
+    if (
+      streak.currentStreak > 0 &&
+      streak.currentStreak % streakThreshold === 0
+    ) {
       // Check if reward already issued for this streak milestone
       const existingReward = await this.prisma.reward.findFirst({
         where: {
@@ -225,8 +253,14 @@ export class RewardService {
 
       if (!existingReward) {
         // Issue new reward
-        const rewardAmount = this.configService.get<number>('STREAK_REWARD_AMOUNT', 3000);
-        const rewardExpiryDays = this.configService.get<number>('REWARD_EXPIRY_DAYS', 30);
+        const rewardAmount = this.configService.get<number>(
+          'STREAK_REWARD_AMOUNT',
+          3000,
+        );
+        const rewardExpiryDays = this.configService.get<number>(
+          'REWARD_EXPIRY_DAYS',
+          30,
+        );
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + rewardExpiryDays);
 
@@ -265,9 +299,15 @@ export class RewardService {
       expiredAmount,
     ] = await Promise.all([
       this.prisma.reward.count({ where }),
-      this.prisma.reward.count({ where: { ...where, status: RewardStatus.PENDING } }),
-      this.prisma.reward.count({ where: { ...where, status: RewardStatus.CLAIMED } }),
-      this.prisma.reward.count({ where: { ...where, status: RewardStatus.EXPIRED } }),
+      this.prisma.reward.count({
+        where: { ...where, status: RewardStatus.PENDING },
+      }),
+      this.prisma.reward.count({
+        where: { ...where, status: RewardStatus.CLAIMED },
+      }),
+      this.prisma.reward.count({
+        where: { ...where, status: RewardStatus.EXPIRED },
+      }),
       this.prisma.reward.aggregate({ where, _sum: { amount: true } }),
       this.prisma.reward.aggregate({
         where: { ...where, status: RewardStatus.PENDING },

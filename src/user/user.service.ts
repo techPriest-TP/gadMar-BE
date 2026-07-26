@@ -141,7 +141,7 @@ export class UserService {
 
     // Calculate current streak (consecutive completed transactions)
     const completedTransactions = user.transactions
-      .filter((t) => t.status === 'COMPLETED')
+      .filter((t) => t.status === 'CONFIRMED')
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     let currentStreak = 0;

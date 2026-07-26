@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: gadmar-api
+    runtime: node
+    plan: free
+    buildCommand: yarn install && yarn build
+    startCommand: yarn start:prod
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: POSTMARK_URL
+        sync: false
+      - key: POSTMARK_TOKEN
+        sync: false
+      - key: POSTMARK_FROM_EMAIL
+        sync: false

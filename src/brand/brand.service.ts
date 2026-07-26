@@ -127,7 +127,7 @@ export class BrandService {
       this.prisma.product.count({ where: { brandId: id } }),
       this.prisma.transactionIntent.findMany({ where: { brandId: id } }),
     ]);
-    const completed = transactions.filter((item) => item.status === 'COMPLETED');
+    const completed = transactions.filter((item) => item.status === 'CONFIRMED');
     return {
       ...this.map(brand),
       productCount: products,

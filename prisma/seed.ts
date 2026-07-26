@@ -20,7 +20,9 @@ async function main() {
   // Clean existing data
   await prisma.commission.deleteMany();
   await prisma.reward.deleteMany();
+  await prisma.transactionIntentItem.deleteMany();
   await prisma.transactionIntent.deleteMany();
+  await prisma.purchaseBatch.deleteMany();
   await prisma.activityLog.deleteMany();
   await prisma.product.deleteMany();
   await prisma.brand.deleteMany();
@@ -255,65 +257,33 @@ async function main() {
   // Get created products for transaction creation
   const createdProducts = await prisma.product.findMany();
 
-  // Create transaction intents
-  const transactions = await Promise.all([
-    prisma.transactionIntent.create({
+  // Create one multi-brand cart batch, split into one intent per brand.
+  const seededBatch = await prisma.purchaseBatch.create({
+    data: { batchCode: 'BATCH-SEED01', userId: user1.id },
+  });
+  const seededItems = [createdProducts[0], createdProducts[3]];
+  const transactions = await Promise.all(seededItems.map((product, index) => {
+    const brand = product.brandId === apple.id ? apple : samsung;
+    const refCode = `GAD-SEED0${index + 1}`;
+    const message = `Hi ${brand.name}, I'd like to buy ${product.name}. Reference: ${refCode}`;
+    return prisma.transactionIntent.create({
       data: {
+        batchId: seededBatch.id,
         userId: user1.id,
-        productId: createdProducts[0].id,
-        brandId: apple.id,
-        status: TransactionStatus.COMPLETED,
-        refCode: 'TXN-A1B2C3',
-        amount: 1500000,
-        commission: 75000,
+        productId: product.id,
+        brandId: brand.id,
+        status: TransactionStatus.CONFIRMED,
+        refCode,
+        amount: product.price,
+        finalAmount: product.price,
+        commission: product.price * brand.commissionRate / 100,
         completedAt: new Date(),
+        whatsappMessage: message,
+        whatsappUrl: `${brand.whatsappLink}?text=${encodeURIComponent(message)}`,
+        items: { create: [{ productId: product.id, productName: product.name, productSlug: product.slug, productImage: product.images[0], unitPrice: product.price, quantity: 1, rewardEligible: product.rewardEligible, brandId: brand.id, brandName: brand.name }] },
       },
-    }),
-    prisma.transactionIntent.create({
-      data: {
-        userId: user1.id,
-        productId: createdProducts[1].id,
-        brandId: apple.id,
-        status: TransactionStatus.COMPLETED,
-        refCode: 'TXN-D4E5F6',
-        amount: 2500000,
-        commission: 125000,
-        completedAt: new Date(),
-      },
-    }),
-    prisma.transactionIntent.create({
-      data: {
-        userId: user1.id,
-        productId: createdProducts[3].id,
-        brandId: samsung.id,
-        status: TransactionStatus.COMPLETED,
-        refCode: 'TXN-G7H8I9',
-        amount: 1400000,
-        commission: 63000,
-        completedAt: new Date(),
-      },
-    }),
-    prisma.transactionIntent.create({
-      data: {
-        userId: user2.id,
-        productId: createdProducts[0].id,
-        brandId: apple.id,
-        status: TransactionStatus.PENDING,
-        refCode: 'TXN-J0K1L2',
-        amount: 1500000,
-      },
-    }),
-    prisma.transactionIntent.create({
-      data: {
-        userId: user2.id,
-        productId: createdProducts[6].id,
-        brandId: sony.id,
-        status: TransactionStatus.PENDING,
-        refCode: 'TXN-M3N4O5',
-        amount: 600000,
-      },
-    }),
-  ]);
+    });
+  }));
   console.log('✅ Created transaction intents:', transactions.length);
 
   // Create rewards
