@@ -18,9 +18,17 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         sync: false
+      - key: EMAIL_PROVIDER
+        value: postmark
       - key: POSTMARK_URL
         sync: false
       - key: POSTMARK_TOKEN
         sync: false
       - key: POSTMARK_FROM_EMAIL
+        sync: false
+      - key: RESEND_API_URL
+        value: https://api.resend.com
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
         sync: false

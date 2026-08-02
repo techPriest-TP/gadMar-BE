@@ -37,9 +37,22 @@ DATABASE_URL
 JWT_SECRET
 JWT_REFRESH_SECRET
 FRONTEND_URL
+EMAIL_PROVIDER
+```
+
+Email delivery is selected with `EMAIL_PROVIDER=postmark` or
+`EMAIL_PROVIDER=resend`. Only the selected provider's credentials are required:
+
+```text
+# Postmark
 POSTMARK_URL
 POSTMARK_TOKEN
 POSTMARK_FROM_EMAIL
+
+# Resend
+RESEND_API_URL
+RESEND_API_KEY
+RESEND_FROM_EMAIL
 ```
 
 `JWT_SECRET` and `JWT_REFRESH_SECRET` must each contain at least 32 characters. Google OAuth, Firebase, Cloudinary, CORS, and other integration variables are optional until their respective features are enabled.
@@ -106,10 +119,13 @@ DATABASE_URL
 JWT_SECRET
 JWT_REFRESH_SECRET
 FRONTEND_URL
-POSTMARK_URL
-POSTMARK_TOKEN
-POSTMARK_FROM_EMAIL
+EMAIL_PROVIDER
 ```
+
+For Postmark, provide `POSTMARK_URL`, `POSTMARK_TOKEN`, and
+`POSTMARK_FROM_EMAIL`. For Resend, provide `RESEND_API_KEY` and a verified
+`RESEND_FROM_EMAIL`; `RESEND_API_URL` defaults to `https://api.resend.com`.
+Unused provider credentials can remain unset.
 
 Set `FRONTEND_URL` to the frontend origin allowed by CORS. `DATABASE_URL`
 must point to a reachable MongoDB deployment. Render's free filesystem is

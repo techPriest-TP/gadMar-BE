@@ -3,10 +3,12 @@ const REQUIRED_ENVIRONMENT_VARIABLES = [
   'JWT_SECRET',
   'JWT_REFRESH_SECRET',
   'FRONTEND_URL',
-  'POSTMARK_URL',
-  'POSTMARK_TOKEN',
-  'POSTMARK_FROM_EMAIL',
 ] as const;
+
+const EMAIL_PROVIDER_VARIABLES = {
+  postmark: ['POSTMARK_URL', 'POSTMARK_TOKEN', 'POSTMARK_FROM_EMAIL'],
+  resend: ['RESEND_API_KEY', 'RESEND_FROM_EMAIL'],
+} as const;
 
 export function validateEnvironment(
   environment: Record<string, unknown>,
@@ -19,6 +21,28 @@ export function validateEnvironment(
   if (missing.length > 0) {
     throw new Error(
       `Missing required environment variables: ${missing.join(', ')}`,
+    );
+  }
+
+  const emailProvider = String(
+    environment.EMAIL_PROVIDER || 'postmark',
+  ).toLowerCase();
+  if (!(emailProvider in EMAIL_PROVIDER_VARIABLES)) {
+    throw new Error('EMAIL_PROVIDER must be either postmark or resend');
+  }
+
+  environment.EMAIL_PROVIDER = emailProvider;
+  const providerVariables =
+    EMAIL_PROVIDER_VARIABLES[
+      emailProvider as keyof typeof EMAIL_PROVIDER_VARIABLES
+    ];
+  const missingProviderVariables = providerVariables.filter((key) => {
+    const value = environment[key];
+    return typeof value !== 'string' || value.trim().length === 0;
+  });
+  if (missingProviderVariables.length > 0) {
+    throw new Error(
+      `Missing required ${emailProvider} environment variables: ${missingProviderVariables.join(', ')}`,
     );
   }
 
