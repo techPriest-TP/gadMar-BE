@@ -39,6 +39,7 @@ async function bootstrap() {
     .addTag('Users', 'User management')
     .addTag('Brands', 'Brand management')
     .addTag('Products', 'Product management')
+    .addTag('Media', 'Direct image upload authorization')
     .addTag('Transactions', 'Purchase intent tracking')
     .addTag('Rewards', 'Reward system')
     .addTag('Analytics', 'Analytics and reporting')

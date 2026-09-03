@@ -119,7 +119,7 @@ model Product {
   description         String?
   price               Float
   oldPrice            Float?
-  images              String[]            @default([])
+  images              ProductImage[]
   category            String
   condition           ProductCondition    @default(NEW)
   specifications      Json?
@@ -147,6 +147,26 @@ model Product {
   @@index([category, condition, stockStatus])
   @@index([region, state])
   @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  productId String   @db.ObjectId
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  publicId  String   @unique
+  secureUrl String
+  width     Int
+  height    Int
+  format    String
+  bytes     Int
+  altText   String?
+  position  Int
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId, position])
+  @@map("product_images")
 }
 
 model TransactionIntent {

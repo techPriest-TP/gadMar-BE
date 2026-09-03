@@ -108,44 +108,48 @@ export class AnalyticsService {
     for (let i = months - 1; i >= 0; i--) {
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-      const monthName = monthStart.toLocaleString('default', { month: 'short', year: '2-digit' });
+      const monthName = monthStart.toLocaleString('default', {
+        month: 'short',
+        year: '2-digit',
+      });
 
-      const [transactionCount, sales, userCount, rewardCount] = await Promise.all([
-        this.prisma.transactionIntent.count({
-          where: {
-            createdAt: {
-              gte: monthStart,
-              lte: monthEnd,
+      const [transactionCount, sales, userCount, rewardCount] =
+        await Promise.all([
+          this.prisma.transactionIntent.count({
+            where: {
+              createdAt: {
+                gte: monthStart,
+                lte: monthEnd,
+              },
             },
-          },
-        }),
-        this.prisma.transactionIntent.aggregate({
-          where: {
-            status: TransactionStatus.CONFIRMED,
-            completedAt: {
-              gte: monthStart,
-              lte: monthEnd,
+          }),
+          this.prisma.transactionIntent.aggregate({
+            where: {
+              status: TransactionStatus.CONFIRMED,
+              completedAt: {
+                gte: monthStart,
+                lte: monthEnd,
+              },
             },
-          },
-          _sum: { amount: true },
-        }),
-        this.prisma.user.count({
-          where: {
-            createdAt: {
-              gte: monthStart,
-              lte: monthEnd,
+            _sum: { amount: true },
+          }),
+          this.prisma.user.count({
+            where: {
+              createdAt: {
+                gte: monthStart,
+                lte: monthEnd,
+              },
             },
-          },
-        }),
-        this.prisma.reward.count({
-          where: {
-            createdAt: {
-              gte: monthStart,
-              lte: monthEnd,
+          }),
+          this.prisma.reward.count({
+            where: {
+              createdAt: {
+                gte: monthStart,
+                lte: monthEnd,
+              },
             },
-          },
-        }),
-      ]);
+          }),
+        ]);
 
       result.push({
         month: monthName,
@@ -199,6 +203,7 @@ export class AnalyticsService {
       where: { isActive: true },
       take: limit,
       include: {
+        images: { orderBy: { position: 'asc' } },
         brand: {
           select: {
             id: true,
@@ -224,7 +229,7 @@ export class AnalyticsService {
           id: product.id,
           name: product.name,
           price: product.price,
-          images: product.images,
+          images: product.images.map((image) => image.secureUrl),
           brand: product.brand,
           views: viewStats,
           transactionCount: transactionStats._count,
@@ -320,9 +325,15 @@ export class AnalyticsService {
   private async getTransactionStats() {
     const [total, pending, completed, cancelled, sales] = await Promise.all([
       this.prisma.transactionIntent.count(),
-      this.prisma.transactionIntent.count({ where: { status: TransactionStatus.PENDING } }),
-      this.prisma.transactionIntent.count({ where: { status: TransactionStatus.CONFIRMED } }),
-      this.prisma.transactionIntent.count({ where: { status: TransactionStatus.CANCELLED } }),
+      this.prisma.transactionIntent.count({
+        where: { status: TransactionStatus.PENDING },
+      }),
+      this.prisma.transactionIntent.count({
+        where: { status: TransactionStatus.CONFIRMED },
+      }),
+      this.prisma.transactionIntent.count({
+        where: { status: TransactionStatus.CANCELLED },
+      }),
       this.prisma.transactionIntent.aggregate({
         where: { status: TransactionStatus.CONFIRMED },
         _sum: { amount: true, commission: true },
@@ -360,8 +371,12 @@ export class AnalyticsService {
   private async getActivityStats() {
     const [total, productViews, whatsappClicks] = await Promise.all([
       this.prisma.activityLog.count(),
-      this.prisma.activityLog.count({ where: { type: ActivityType.PRODUCT_VIEW } }),
-      this.prisma.activityLog.count({ where: { type: ActivityType.WHATSAPP_CLICK } }),
+      this.prisma.activityLog.count({
+        where: { type: ActivityType.PRODUCT_VIEW },
+      }),
+      this.prisma.activityLog.count({
+        where: { type: ActivityType.WHATSAPP_CLICK },
+      }),
     ]);
 
     return {

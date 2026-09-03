@@ -89,7 +89,8 @@ async function main() {
       name: 'Apple',
       slug: 'apple',
       logo: 'https://example.com/apple-logo.png',
-      about: 'Premium technology products including iPhones, MacBooks, and accessories.',
+      about:
+        'Premium technology products including iPhones, MacBooks, and accessories.',
       phone: '+2348011111111',
       whatsappLink: 'https://wa.me/2348011111111',
       email: 'support@apple.com',
@@ -115,7 +116,8 @@ async function main() {
       name: 'Samsung',
       slug: 'samsung',
       logo: 'https://example.com/samsung-logo.png',
-      about: 'Leading electronics brand with smartphones, tablets, and home appliances.',
+      about:
+        'Leading electronics brand with smartphones, tablets, and home appliances.',
       phone: '+2348022222222',
       whatsappLink: 'https://wa.me/2348022222222',
       email: 'support@samsung.com',
@@ -153,9 +155,9 @@ async function main() {
       {
         name: 'iPhone 15 Pro Max',
         slug: 'iphone-15-pro-max',
-        description: 'Latest iPhone with A17 Pro chip, 256GB storage, Titanium design.',
+        description:
+          'Latest iPhone with A17 Pro chip, 256GB storage, Titanium design.',
         price: 1500000,
-        images: ['https://example.com/iphone15-1.jpg', 'https://example.com/iphone15-2.jpg'],
         category: 'Smartphones',
         brandId: apple.id,
         condition: ProductCondition.NEW,
@@ -176,7 +178,6 @@ async function main() {
         slug: 'macbook-pro-16-m3',
         description: 'Powerful laptop with M3 chip, 16GB RAM, 512GB SSD.',
         price: 2500000,
-        images: ['https://example.com/macbook-1.jpg', 'https://example.com/macbook-2.jpg'],
         category: 'Laptops',
         brandId: apple.id,
         condition: ProductCondition.NEW,
@@ -193,7 +194,6 @@ async function main() {
         slug: 'airpods-pro-2',
         description: 'Premium wireless earbuds with active noise cancellation.',
         price: 250000,
-        images: ['https://example.com/airpods-1.jpg'],
         category: 'Accessories',
         brandId: apple.id,
         condition: ProductCondition.NEW,
@@ -203,9 +203,9 @@ async function main() {
       {
         name: 'Samsung Galaxy S24 Ultra',
         slug: 'samsung-galaxy-s24-ultra',
-        description: 'Flagship smartphone with S Pen, 200MP camera, AI features.',
+        description:
+          'Flagship smartphone with S Pen, 200MP camera, AI features.',
         price: 1400000,
-        images: ['https://example.com/s24-1.jpg', 'https://example.com/s24-2.jpg'],
         category: 'Smartphones',
         brandId: samsung.id,
         condition: ProductCondition.NEW,
@@ -219,7 +219,6 @@ async function main() {
         slug: 'samsung-galaxy-tab-s9',
         description: 'Premium Android tablet with S Pen included.',
         price: 800000,
-        images: ['https://example.com/tabs9-1.jpg'],
         category: 'Tablets',
         brandId: samsung.id,
         condition: ProductCondition.NEW,
@@ -231,7 +230,6 @@ async function main() {
         slug: 'sony-wh-1000xm5',
         description: 'Industry-leading noise canceling headphones.',
         price: 350000,
-        images: ['https://example.com/sony-headphones-1.jpg'],
         category: 'Accessories',
         brandId: sony.id,
         condition: ProductCondition.NEW,
@@ -243,7 +241,6 @@ async function main() {
         slug: 'playstation-5',
         description: 'Next-gen gaming console with ultra-high speed SSD.',
         price: 600000,
-        images: ['https://example.com/ps5-1.jpg', 'https://example.com/ps5-2.jpg'],
         category: 'Gaming',
         brandId: sony.id,
         condition: ProductCondition.NEW,
@@ -256,34 +253,67 @@ async function main() {
 
   // Get created products for transaction creation
   const createdProducts = await prisma.product.findMany();
+  await prisma.productImage.createMany({
+    data: createdProducts.map((product) => ({
+      productId: product.id,
+      publicId: `gadmar/brands/${product.brandId}/products/${product.slug}`,
+      secureUrl: `https://res.cloudinary.com/demo/image/upload/${product.slug}.jpg`,
+      width: 1200,
+      height: 1200,
+      format: 'jpg',
+      bytes: 250000,
+      altText: product.name,
+      position: 0,
+      isPrimary: true,
+    })),
+  });
+  const productsWithImages = await prisma.product.findMany({
+    include: { images: { orderBy: { position: 'asc' } } },
+  });
 
   // Create one multi-brand cart batch, split into one intent per brand.
   const seededBatch = await prisma.purchaseBatch.create({
     data: { batchCode: 'BATCH-SEED01', userId: user1.id },
   });
-  const seededItems = [createdProducts[0], createdProducts[3]];
-  const transactions = await Promise.all(seededItems.map((product, index) => {
-    const brand = product.brandId === apple.id ? apple : samsung;
-    const refCode = `GAD-SEED0${index + 1}`;
-    const message = `Hi ${brand.name}, I'd like to buy ${product.name}. Reference: ${refCode}`;
-    return prisma.transactionIntent.create({
-      data: {
-        batchId: seededBatch.id,
-        userId: user1.id,
-        productId: product.id,
-        brandId: brand.id,
-        status: TransactionStatus.CONFIRMED,
-        refCode,
-        amount: product.price,
-        finalAmount: product.price,
-        commission: product.price * brand.commissionRate / 100,
-        completedAt: new Date(),
-        whatsappMessage: message,
-        whatsappUrl: `${brand.whatsappLink}?text=${encodeURIComponent(message)}`,
-        items: { create: [{ productId: product.id, productName: product.name, productSlug: product.slug, productImage: product.images[0], unitPrice: product.price, quantity: 1, rewardEligible: product.rewardEligible, brandId: brand.id, brandName: brand.name }] },
-      },
-    });
-  }));
+  const seededItems = [productsWithImages[0], productsWithImages[3]];
+  const transactions = await Promise.all(
+    seededItems.map((product, index) => {
+      const brand = product.brandId === apple.id ? apple : samsung;
+      const refCode = `GAD-SEED0${index + 1}`;
+      const message = `Hi ${brand.name}, I'd like to buy ${product.name}. Reference: ${refCode}`;
+      return prisma.transactionIntent.create({
+        data: {
+          batchId: seededBatch.id,
+          userId: user1.id,
+          productId: product.id,
+          brandId: brand.id,
+          status: TransactionStatus.CONFIRMED,
+          refCode,
+          amount: product.price,
+          finalAmount: product.price,
+          commission: (product.price * brand.commissionRate) / 100,
+          completedAt: new Date(),
+          whatsappMessage: message,
+          whatsappUrl: `${brand.whatsappLink}?text=${encodeURIComponent(message)}`,
+          items: {
+            create: [
+              {
+                productId: product.id,
+                productName: product.name,
+                productSlug: product.slug,
+                productImage: product.images[0]?.secureUrl,
+                unitPrice: product.price,
+                quantity: 1,
+                rewardEligible: product.rewardEligible,
+                brandId: brand.id,
+                brandName: brand.name,
+              },
+            ],
+          },
+        },
+      });
+    }),
+  );
   console.log('✅ Created transaction intents:', transactions.length);
 
   // Create rewards

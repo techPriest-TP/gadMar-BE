@@ -17,6 +17,7 @@ import { ActivityLogService } from '../activity-log/activity-log.service';
 import { CreateTransactionIntentDto } from './dto/create-transaction-intent.dto';
 import { UpdateTransactionIntentDto } from './dto/update-transaction-intent.dto';
 import { RewardService } from '../reward/reward.service';
+import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
 
 type Actor = { userId: string; role: UserRole | string };
 
@@ -49,6 +50,7 @@ export class TransactionIntentService {
     private readonly whatsapp: WhatsAppService,
     private readonly activityLog: ActivityLogService,
     private readonly rewardService: RewardService,
+    private readonly cloudinary: CloudinaryService,
   ) {}
 
   async create(userId: string | undefined, dto: CreateTransactionIntentDto) {
@@ -77,7 +79,10 @@ export class TransactionIntentService {
     }
     const products = await this.prisma.product.findMany({
       where: { id: { in: [...quantities.keys()] }, isActive: true },
-      include: { brand: true },
+      include: {
+        brand: true,
+        images: { orderBy: [{ isPrimary: 'desc' }, { position: 'asc' }] },
+      },
     });
     if (products.length !== quantities.size)
       throw new NotFoundException(
@@ -140,7 +145,12 @@ export class TransactionIntentService {
                 productId: p.id,
                 productName: p.name,
                 productSlug: p.slug,
-                productImage: p.images[0],
+                productImage: p.images[0]
+                  ? this.cloudinary.productImageUrl(
+                      p.images[0].publicId,
+                      'card',
+                    )
+                  : undefined,
                 unitPrice: p.price,
                 quantity: quantities.get(p.id)!,
                 rewardEligible: p.rewardEligible,

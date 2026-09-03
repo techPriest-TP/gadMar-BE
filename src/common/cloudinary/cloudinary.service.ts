@@ -1,16 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  v2 as cloudinary,
-  UploadApiResponse,
-  UploadApiOptions,
-} from 'cloudinary';
-import { Readable } from 'stream';
+import { v2 as cloudinary } from 'cloudinary';
+
+export type ProductImageVariant = 'thumbnail' | 'card' | 'detail' | 'zoom';
 
 @Injectable()
 export class CloudinaryService {
-  private readonly logger = new Logger(CloudinaryService.name);
-
   constructor(private readonly configService: ConfigService) {
     cloudinary.config({
       cloud_name: this.configService.get<string>('CLOUD_NAME'),
@@ -20,77 +15,39 @@ export class CloudinaryService {
     });
   }
 
-  private async uploadImageBuffer(
-    file: Express.Multer.File,
-    options: UploadApiOptions = {},
-  ): Promise<UploadApiResponse> {
-    return new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          resource_type: 'image',
-          folder: options.folder || 'lwc/img/uploads',
-          overwrite: true,
-          use_filename: true,
-          unique_filename: true,
-          ...options,
-        },
-        (error, result) => {
-          if (error) {
-            this.logger.error('Cloudinary upload failed', error as any);
-            return reject(error);
-          }
-          if (!result) return reject(new Error('Empty Cloudinary result'));
-          resolve(result);
-        },
-      );
-
-      const readable = new Readable();
-      readable.push(file.buffer);
-      readable.push(null);
-      readable.pipe(uploadStream);
-    });
-  }
-
-  async uploadImage(file: Express.Multer.File): Promise<{
-    url: string;
-    publicId: string;
-    // width?: number;
-    // height?: number;
-    // format?: string;
-  }> {
-    const result = await this.uploadImageBuffer(file);
-
+  createUploadSignature(folder: string) {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const uploadPreset = this.configService.getOrThrow<string>(
+      'CLOUDINARY_UPLOAD_PRESET',
+    );
+    const params = { folder, timestamp, upload_preset: uploadPreset };
     return {
-      url: result.secure_url,
-      publicId: result.public_id,
-      //   width: result.width,
-      //   height: result.height,
-      //   format: result.format,
+      ...params,
+      signature: cloudinary.utils.api_sign_request(
+        params,
+        this.configService.getOrThrow<string>('CLOUD_SECRET'),
+      ),
+      apiKey: this.configService.getOrThrow<string>('CLOUD_KEY'),
+      cloudName: this.configService.getOrThrow<string>('CLOUD_NAME'),
+      uploadPreset,
     };
   }
 
-  //   async uploadBrandImage(
-  //     brandCode: string,
-  //     imageBuffer: Buffer,
-  //     folder: string = "brand-images"
-  //   ): Promise<string> {
-  //     return new Promise((resolve, reject) => {
-  //       const uploadStream = cloudinary.uploader.upload_stream(
-  //         {
-  //           folder,
-  //           public_id: brandCode,
-  //           overwrite: true,
-  //           format: "jpg",
-  //           transformation: [{ width: 600, height: 400, crop: "fill" }],
-  //         },
-  //         (error, result) => {
-  //           if (error) reject(error);
-  //           else if (result) resolve(result.secure_url);
-  //           else reject(new Error("Empty Cloudinary result"));
-  //         }
-  //       );
+  productImageUrl(publicId: string, variant: ProductImageVariant): string {
+    const sizes = {
+      thumbnail: { width: 320, height: 320, crop: 'fill', gravity: 'auto' },
+      card: { width: 640, height: 640, crop: 'fill', gravity: 'auto' },
+      detail: { width: 1200, crop: 'limit' },
+      zoom: { width: 1800, crop: 'limit' },
+    } as const;
 
-  //       uploadStream.end(imageBuffer);
-  //     });
-  //   }
+    return cloudinary.url(publicId, {
+      secure: true,
+      transformation: [
+        { ...sizes[variant] },
+        { quality: 'auto' },
+        { fetch_format: 'auto' },
+      ],
+    });
+  }
 }

@@ -15,6 +15,7 @@ import { CommissionModule } from './commission/commission.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { validateEnvironment } from './config/environment';
+import { MediaModule } from './media/media.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { validateEnvironment } from './config/environment';
     UserModule,
     BrandModule,
     ProductModule,
+    MediaModule,
     TransactionIntentModule,
     RewardModule,
     ActivityLogModule,
