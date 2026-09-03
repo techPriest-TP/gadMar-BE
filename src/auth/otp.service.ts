@@ -11,12 +11,14 @@ import { generateOtp, hashOtp } from '../utils/helpers';
 import { resetPasswordTemplate } from 'src/email/templates/reset-password.template';
 import { Agenda } from '@hokify/agenda';
 import { otpEmailTemplate } from 'src/email/templates/otp.template';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class OtpService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject('AGENDA') private readonly agenda: Agenda,
+    private readonly configService: ConfigService,
   ) {}
 
   private OTP_EXPIRY_MINUTES = 10;
@@ -64,7 +66,15 @@ export class OtpService {
         },
       });
 
-      console.log('starting agenda for sending OTP...');
+      const appEnvironment = this.configService.getOrThrow<string>('APP_ENV');
+
+      if (appEnvironment === 'development') {
+        return {
+          message: 'OTP generated successfully',
+          success: true,
+          otp,
+        };
+      }
 
       // Queue email
       await this.agenda.now(EmailJobType.SEND, {

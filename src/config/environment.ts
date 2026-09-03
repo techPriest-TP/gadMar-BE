@@ -1,4 +1,5 @@
 const REQUIRED_ENVIRONMENT_VARIABLES = [
+  'APP_ENV',
   'DATABASE_URL',
   'JWT_SECRET',
   'JWT_REFRESH_SECRET',
@@ -24,6 +25,16 @@ export function validateEnvironment(
     );
   }
 
+  const appEnvironment = String(environment.APP_ENV).toLowerCase();
+  if (!['development', 'production'].includes(appEnvironment)) {
+    throw new Error('APP_ENV must be either development or production');
+  }
+  environment.APP_ENV = appEnvironment;
+
+  if (appEnvironment === 'development') {
+    return validateSecrets(environment);
+  }
+
   const emailProvider = String(
     environment.EMAIL_PROVIDER || 'postmark',
   ).toLowerCase();
@@ -46,6 +57,12 @@ export function validateEnvironment(
     );
   }
 
+  return validateSecrets(environment);
+}
+
+function validateSecrets(
+  environment: Record<string, unknown>,
+): Record<string, unknown> {
   for (const secret of ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const) {
     if ((environment[secret] as string).length < 32) {
       throw new Error(`${secret} must contain at least 32 characters`);

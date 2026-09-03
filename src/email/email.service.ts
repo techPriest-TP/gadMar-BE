@@ -15,13 +15,17 @@ interface SendEmailParams {
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly provider: EmailProvider;
-  private readonly client: AxiosInstance;
-  private readonly fromEmail: string;
+  private readonly client?: AxiosInstance;
+  private readonly fromEmail?: string;
 
   constructor(private readonly configService: ConfigService) {
     this.provider = this.configService
       .get<string>('EMAIL_PROVIDER', 'postmark')
       .toLowerCase() as EmailProvider;
+
+    if (this.configService.getOrThrow<string>('APP_ENV') === 'development') {
+      return;
+    }
 
     if (this.provider === 'resend') {
       this.fromEmail =
@@ -55,6 +59,10 @@ export class MailService {
   }
 
   async sendEmail(params: SendEmailParams): Promise<void> {
+    if (!this.client || !this.fromEmail) {
+      throw new Error('Email delivery is unavailable in development');
+    }
+
     try {
       if (this.provider === 'resend') {
         await this.sendWithResend(params);
@@ -68,7 +76,7 @@ export class MailService {
   }
 
   private async sendWithPostmark(params: SendEmailParams): Promise<void> {
-    await this.client.post('/email', {
+    await this.client!.post('/email', {
       To: params.to,
       From: `GadMar <${this.fromEmail}>`,
       Subject: params.subject,
@@ -80,7 +88,7 @@ export class MailService {
   }
 
   private async sendWithResend(params: SendEmailParams): Promise<void> {
-    await this.client.post('/emails', {
+    await this.client!.post('/emails', {
       from: `GadMar <${this.fromEmail}>`,
       to: [params.to],
       subject: params.subject,

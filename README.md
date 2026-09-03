@@ -33,12 +33,18 @@ The main MongoDB connection and the Agenda email worker both use `DATABASE_URL`.
 Required variables:
 
 ```text
+APP_ENV
 DATABASE_URL
 JWT_SECRET
 JWT_REFRESH_SECRET
 FRONTEND_URL
-EMAIL_PROVIDER
 ```
+
+Set `APP_ENV=development` locally to return generated OTPs in the request
+response without sending email. Set `APP_ENV=production` on every public
+deployment; production never returns the OTP and requires the selected email
+provider to be configured. `EMAIL_PROVIDER` is therefore required only when
+`APP_ENV=production`.
 
 Email delivery is selected with `EMAIL_PROVIDER=postmark` or
 `EMAIL_PROVIDER=resend`. Only the selected provider's credentials are required:
