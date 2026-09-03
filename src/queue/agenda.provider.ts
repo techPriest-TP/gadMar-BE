@@ -24,19 +24,19 @@ export class AgendaService implements OnApplicationShutdown {
     }
 
     await this.agenda.stop();
-    this.logger.log('Agenda email worker stopped');
+    this.logger.log('Agenda worker stopped');
   }
 
   private async createAndStart(): Promise<Agenda> {
     const databaseUrl = this.configService.getOrThrow<string>('DATABASE_URL');
     const agenda = new Agenda({
-      name: 'GadMar Email Worker',
+      name: 'GadMar Worker',
       db: { address: databaseUrl, collection: 'jobs' },
     });
 
     await agenda.start();
     this.agenda = agenda;
-    this.logger.log('Agenda email worker started');
+    this.logger.log('Agenda worker started');
 
     return agenda;
   }

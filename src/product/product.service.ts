@@ -14,6 +14,7 @@ import {
 import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
 import { toSlug } from '../common/utils/slug';
 import { PrismaService } from '../prisma/prisma.service';
+import { MediaService } from '../media/media.service';
 import {
   CreateProductDto,
   ProductImageInputDto,
@@ -23,6 +24,11 @@ import {
   ProductWithBrandDto,
 } from './dto/product-response.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import {
+  AddProductImageDto,
+  ReplaceProductImageDto,
+  UpdateProductImageDto,
+} from './dto/product-image-management.dto';
 
 type Actor = { userId: string; role: UserRole };
 type ProductFilters = {
@@ -50,6 +56,7 @@ export class ProductService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cloudinary: CloudinaryService,
+    private readonly media: MediaService,
   ) {}
 
   async create(
@@ -68,12 +75,19 @@ export class ProductService {
       delete data.rewardEligible;
       delete data.isFeatured;
     }
-    return this.map(
-      await this.prisma.product.create({
+    const product = await this.prisma.$transaction(async (transaction) => {
+      await this.media.claimProductUploads(
+        (images || []).map((image) => image.publicId),
+        dto.brandId,
+        actor,
+        transaction,
+      );
+      return transaction.product.create({
         data,
         include: { images: { orderBy: { position: 'asc' } } },
-      }),
-    );
+      });
+    });
+    return this.map(product);
   }
 
   async findPublic(
@@ -164,8 +178,7 @@ export class ProductService {
 
   async update(id: string, dto: UpdateProductDto, actor: Actor) {
     const product = await this.requireProductAccess(id, actor);
-    const { images, ...productData } = dto;
-    const data: any = { ...productData };
+    const data: any = { ...dto };
     if (actor.role !== UserRole.ADMIN) {
       delete data.brandId;
       delete data.rewardEligible;
@@ -175,12 +188,6 @@ export class ProductService {
     }
     if (dto.name && dto.name !== product.name)
       data.slug = await this.uniqueSlug(dto.name, id);
-    if (images !== undefined) {
-      data.images = {
-        deleteMany: {},
-        create: this.imageCreateData(images, data.brandId || product.brandId),
-      };
-    }
     return this.map(
       await this.prisma.product.update({
         where: { id },
@@ -191,8 +198,148 @@ export class ProductService {
   }
 
   async remove(id: string, actor: Actor) {
-    await this.requireProductAccess(id, actor);
+    const product = await this.requireProductAccess(id, actor);
     await this.prisma.product.delete({ where: { id } });
+    await Promise.all(
+      product.images.map((image) =>
+        this.media.deleteOrQueue(image.publicId, product.brandId, actor.userId),
+      ),
+    );
+  }
+
+  async addImage(id: string, dto: AddProductImageDto, actor: Actor) {
+    const product = await this.requireProductAccess(id, actor);
+    if (product.images.length >= 8) {
+      throw new BadRequestException('A product can have at most 8 images');
+    }
+    const [imageData] = this.imageCreateData([dto], product.brandId);
+    await this.prisma.$transaction(async (transaction) => {
+      await this.media.claimProductUploads(
+        [dto.publicId],
+        product.brandId,
+        actor,
+        transaction,
+      );
+      await transaction.productImage.create({
+        data: {
+          ...imageData,
+          productId: id,
+          position: product.images.length,
+          isPrimary: product.images.length === 0,
+        },
+      });
+    });
+    return this.managedProductResponse(id);
+  }
+
+  async reorderImages(id: string, imageIds: string[], actor: Actor) {
+    const product = await this.requireProductAccess(id, actor);
+    const currentIds = new Set(product.images.map((image) => image.id));
+    if (
+      imageIds.length !== currentIds.size ||
+      imageIds.some((imageId) => !currentIds.has(imageId))
+    ) {
+      throw new BadRequestException(
+        'imageIds must contain every current product image exactly once',
+      );
+    }
+    await this.prisma.$transaction(
+      imageIds.map((imageId, position) =>
+        this.prisma.productImage.update({
+          where: { id: imageId },
+          data: { position },
+        }),
+      ),
+    );
+    return this.managedProductResponse(id);
+  }
+
+  async setPrimaryImage(id: string, imageId: string, actor: Actor) {
+    const product = await this.requireProductAccess(id, actor);
+    this.requireImage(product.images, imageId);
+    await this.prisma.$transaction([
+      this.prisma.productImage.updateMany({
+        where: { productId: id },
+        data: { isPrimary: false },
+      }),
+      this.prisma.productImage.update({
+        where: { id: imageId },
+        data: { isPrimary: true },
+      }),
+    ]);
+    return this.managedProductResponse(id);
+  }
+
+  async updateImage(
+    id: string,
+    imageId: string,
+    dto: UpdateProductImageDto,
+    actor: Actor,
+  ) {
+    const product = await this.requireProductAccess(id, actor);
+    this.requireImage(product.images, imageId);
+    await this.prisma.productImage.update({
+      where: { id: imageId },
+      data: { altText: dto.altText },
+    });
+    return this.managedProductResponse(id);
+  }
+
+  async replaceImage(
+    id: string,
+    imageId: string,
+    dto: ReplaceProductImageDto,
+    actor: Actor,
+  ) {
+    const product = await this.requireProductAccess(id, actor);
+    const existing = this.requireImage(product.images, imageId);
+    const [imageData] = this.imageCreateData([dto], product.brandId);
+    await this.prisma.$transaction(async (transaction) => {
+      await this.media.claimProductUploads(
+        [dto.publicId],
+        product.brandId,
+        actor,
+        transaction,
+      );
+      await transaction.productImage.update({
+        where: { id: imageId },
+        data: {
+          ...imageData,
+          position: existing.position,
+          isPrimary: existing.isPrimary,
+        },
+      });
+    });
+    await this.media.deleteOrQueue(
+      existing.publicId,
+      product.brandId,
+      actor.userId,
+    );
+    return this.managedProductResponse(id);
+  }
+
+  async removeImage(id: string, imageId: string, actor: Actor) {
+    const product = await this.requireProductAccess(id, actor);
+    const existing = this.requireImage(product.images, imageId);
+    const remaining = product.images.filter((image) => image.id !== imageId);
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.productImage.delete({ where: { id: imageId } });
+      for (const [position, image] of remaining.entries()) {
+        await transaction.productImage.update({
+          where: { id: image.id },
+          data: {
+            position,
+            isPrimary: existing.isPrimary ? position === 0 : image.isPrimary,
+          },
+        });
+      }
+    });
+    await this.media.deleteOrQueue(
+      existing.publicId,
+      product.brandId,
+      actor.userId,
+    );
+    return this.managedProductResponse(id);
   }
 
   private async findPublicUnique(where: { id?: string; slug?: string }) {
@@ -233,7 +380,10 @@ export class ProductService {
   private async requireProductAccess(id: string, actor: Actor) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { brand: true },
+      include: {
+        brand: true,
+        images: { orderBy: { position: 'asc' } },
+      },
     });
     if (!product)
       throw new NotFoundException(`Product with ID ${id} not found`);
@@ -246,6 +396,31 @@ export class ProductService {
       );
     }
     return product;
+  }
+
+  private requireImage<T extends { id: string }>(
+    images: T[],
+    imageId: string,
+  ): T {
+    const image = images.find((candidate) => candidate.id === imageId);
+    if (!image) {
+      throw new NotFoundException(
+        `Image with ID ${imageId} does not belong to this product`,
+      );
+    }
+    return image;
+  }
+
+  private async managedProductResponse(
+    id: string,
+  ): Promise<ProductResponseDto> {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      include: { images: { orderBy: { position: 'asc' } } },
+    });
+    if (!product)
+      throw new NotFoundException(`Product with ID ${id} not found`);
+    return this.map(product);
   }
 
   private async uniqueSlug(name: string, excludedId?: string) {

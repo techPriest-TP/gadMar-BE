@@ -15,14 +15,19 @@ export class CloudinaryService {
     });
   }
 
-  createUploadSignature(folder: string) {
+  createUploadSignature(publicId: string) {
     const timestamp = Math.floor(Date.now() / 1000);
     const uploadPreset = this.configService.getOrThrow<string>(
       'CLOUDINARY_UPLOAD_PRESET',
     );
-    const params = { folder, timestamp, upload_preset: uploadPreset };
+    const params = {
+      public_id: publicId,
+      timestamp,
+      upload_preset: uploadPreset,
+    };
     return {
-      ...params,
+      publicId,
+      timestamp,
       signature: cloudinary.utils.api_sign_request(
         params,
         this.configService.getOrThrow<string>('CLOUD_SECRET'),
@@ -31,6 +36,13 @@ export class CloudinaryService {
       cloudName: this.configService.getOrThrow<string>('CLOUD_NAME'),
       uploadPreset,
     };
+  }
+
+  async deleteImage(publicId: string): Promise<void> {
+    await cloudinary.uploader.destroy(publicId, {
+      resource_type: 'image',
+      invalidate: true,
+    });
   }
 
   productImageUrl(publicId: string, variant: ProductImageVariant): string {

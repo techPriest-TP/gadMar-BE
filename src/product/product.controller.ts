@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -38,6 +39,12 @@ import {
   ProductWithBrandDto,
 } from './dto/product-response.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import {
+  AddProductImageDto,
+  ReorderProductImagesDto,
+  ReplaceProductImageDto,
+  UpdateProductImageDto,
+} from './dto/product-image-management.dto';
 import { ProductService } from './product.service';
 
 @ApiTags('Products')
@@ -202,6 +209,109 @@ export class ProductController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.productService.update(id, dto, this.actor(user));
+  }
+
+  @Post(':productId/images')
+  @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiOperation({ summary: 'Attach one authorized upload to a product' })
+  @ApiResponse({ status: 201, type: ProductResponseDto })
+  addImage(
+    @Param('productId') productId: string,
+    @Body() dto: AddProductImageDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.productService.addImage(productId, dto, this.actor(user));
+  }
+
+  @Patch(':productId/images/reorder')
+  @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiOperation({
+    summary: 'Reorder all product images',
+    description: 'imageIds must contain every current image exactly once.',
+  })
+  @ApiResponse({ status: 200, type: ProductResponseDto })
+  reorderImages(
+    @Param('productId') productId: string,
+    @Body() dto: ReorderProductImagesDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.productService.reorderImages(
+      productId,
+      dto.imageIds,
+      this.actor(user),
+    );
+  }
+
+  @Patch(':productId/images/:imageId/primary')
+  @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiOperation({ summary: 'Make a product image the primary image' })
+  @ApiResponse({ status: 200, type: ProductResponseDto })
+  setPrimaryImage(
+    @Param('productId') productId: string,
+    @Param('imageId') imageId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.productService.setPrimaryImage(
+      productId,
+      imageId,
+      this.actor(user),
+    );
+  }
+
+  @Patch(':productId/images/:imageId')
+  @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiOperation({ summary: 'Update product image metadata' })
+  @ApiResponse({ status: 200, type: ProductResponseDto })
+  updateImage(
+    @Param('productId') productId: string,
+    @Param('imageId') imageId: string,
+    @Body() dto: UpdateProductImageDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.productService.updateImage(
+      productId,
+      imageId,
+      dto,
+      this.actor(user),
+    );
+  }
+
+  @Put(':productId/images/:imageId')
+  @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiOperation({
+    summary: 'Replace one product image with a new authorized upload',
+  })
+  @ApiResponse({ status: 200, type: ProductResponseDto })
+  replaceImage(
+    @Param('productId') productId: string,
+    @Param('imageId') imageId: string,
+    @Body() dto: ReplaceProductImageDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.productService.replaceImage(
+      productId,
+      imageId,
+      dto,
+      this.actor(user),
+    );
+  }
+
+  @Delete(':productId/images/:imageId')
+  @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiOperation({
+    summary: 'Delete one product image from GadMar and Cloudinary',
+  })
+  @ApiResponse({ status: 200, type: ProductResponseDto })
+  removeImage(
+    @Param('productId') productId: string,
+    @Param('imageId') imageId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.productService.removeImage(
+      productId,
+      imageId,
+      this.actor(user),
+    );
   }
 
   @Delete(':id')

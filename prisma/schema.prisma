@@ -169,6 +169,20 @@ model ProductImage {
   @@map("product_images")
 }
 
+model MediaUpload {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  publicId    String    @unique
+  brandId     String    @db.ObjectId
+  requestedBy String    @db.ObjectId
+  expiresAt   DateTime
+  claimedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([expiresAt, claimedAt])
+  @@map("media_uploads")
+}
+
 model TransactionIntent {
   id              String                  @id @default(auto()) @map("_id") @db.ObjectId
   batchId         String                  @db.ObjectId

@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { ProductController } from './product.controller';
 import { CloudinaryModule } from '../common/cloudinary/cloudinary.module';
+import { MediaModule } from '../media/media.module';
 
 @Module({
-  imports: [CloudinaryModule],
+  imports: [CloudinaryModule, MediaModule],
   controllers: [ProductController],
   providers: [ProductService],
   exports: [ProductService],
