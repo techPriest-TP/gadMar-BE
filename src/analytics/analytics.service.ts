@@ -263,7 +263,7 @@ export class AnalyticsService {
 
         return {
           id: user.id,
-          name: user.name,
+          name: `${user.firstName} ${user.lastName}`.trim(),
           email: user.email,
           transactionCount: transactionStats._count,
           totalSpent: transactionStats._sum.amount || 0,

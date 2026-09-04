@@ -7,10 +7,11 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Param,
   Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { ActivityLogService } from './activity-log.service';
 import { CreateActivityLogDto } from './dto/create-activity-log.dto';
 import { ActivityLogResponseDto, ActivityStatsDto } from './dto/activity-log-response.dto';

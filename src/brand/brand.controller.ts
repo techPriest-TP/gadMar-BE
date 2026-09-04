@@ -4,7 +4,7 @@ import { BrandStatus, NigerianRegion, UserRole } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { RequestUser } from '../common/decorators/user.decorator';
+import type { RequestUser } from '../common/decorators/user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { BrandService } from './brand.service';

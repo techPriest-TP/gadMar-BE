@@ -7,15 +7,11 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-  constructor(
-    private reflector: Reflector,
-    private prisma: PrismaService,
-  ) {}
+  constructor(private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
@@ -37,22 +33,8 @@ export class PermissionsGuard implements CanActivate {
     if (user.role === UserRole.ADMIN) {
       return true;
     }
-    // Fetch user permissions
-    const roles = await this.prisma.userRoleAssignment.findMany({
-      where: { userId: user.id },
-      include: {
-        role: {
-          include: {
-            permissions: {
-              include: { permission: true },
-            },
-          },
-        },
-      },
-    });
-
-    const userPermissions = new Set(
-      roles.flatMap((r) => r.role.permissions.map((p) => p.permission.key)),
+    const userPermissions = new Set<string>(
+      Array.isArray(user.permissions) ? user.permissions : [],
     );
 
     const hasPermission = requiredPermissions.every((p) =>

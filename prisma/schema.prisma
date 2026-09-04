@@ -101,6 +101,7 @@ model Brand {
   featuredUntil       DateTime?
   products            Product[]
   transactions        TransactionIntent[]
+  commissions         Commission[]
   ownerId             String?             @db.ObjectId
   owner               User?               @relation("brandOwner", fields: [ownerId], references: [id])
   commissionRate      Float               @default(5.0)
@@ -204,6 +205,7 @@ model TransactionIntent {
   whatsappMessage String
   whatsappUrl     String
   items           TransactionIntentItem[]
+  commissionRecord Commission?
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
 
@@ -281,7 +283,9 @@ model ActivityLog {
 model Commission {
   id            String           @id @default(auto()) @map("_id") @db.ObjectId
   transactionId String           @unique @db.ObjectId
+  transaction   TransactionIntent @relation(fields: [transactionId], references: [id], onDelete: NoAction)
   brandId       String           @db.ObjectId
+  brand         Brand            @relation(fields: [brandId], references: [id], onDelete: NoAction)
   amount        Float
   rate          Float
   status        CommissionStatus @default(PENDING)

@@ -1,1 +1,2 @@
-export { CurrentUser, RequestUser } from './user.decorator';
+export { CurrentUser } from './user.decorator';
+export type { RequestUser } from './user.decorator';
