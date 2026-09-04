@@ -7,15 +7,12 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
-  IsIn,
   IsInt,
   IsMongoId,
   IsNumber,
   IsObject,
   IsOptional,
   IsString,
-  IsUrl,
-  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -26,24 +23,6 @@ export class ProductImageInputDto {
   })
   @IsString()
   publicId: string;
-
-  @ApiProperty({
-    example:
-      'https://res.cloudinary.com/example/image/upload/v1/gadmar/brands/brand-id/products/phone-front.jpg',
-  })
-  @IsUrl({ protocols: ['https'], require_protocol: true })
-  secureUrl: string;
-
-  @ApiProperty({ example: 1600 }) @IsInt() @Min(1) width: number;
-  @ApiProperty({ example: 1600 }) @IsInt() @Min(1) height: number;
-  @ApiProperty({ enum: ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'] })
-  @IsIn(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'])
-  format: string;
-  @ApiProperty({ example: 524288 })
-  @IsInt()
-  @Min(1)
-  @Max(10485760)
-  bytes: number;
   @ApiProperty({ required: false, example: 'Front view of iPhone 15 Pro Max' })
   @IsString()
   @IsOptional()

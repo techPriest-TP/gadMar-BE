@@ -11,7 +11,10 @@ import {
   StockStatus,
   UserRole,
 } from '@prisma/client';
-import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
+import {
+  CloudinaryImageMetadata,
+  CloudinaryService,
+} from '../common/cloudinary/cloudinary.service';
 import { toSlug } from '../common/utils/slug';
 import { PrismaService } from '../prisma/prisma.service';
 import { MediaService } from '../media/media.service';
@@ -65,11 +68,16 @@ export class ProductService {
   ): Promise<ProductResponseDto> {
     await this.requireBrandAccess(dto.brandId, actor);
     const { images, ...productData } = dto;
+    const verifiedImages = await this.media.verifyProductUploads(
+      (images || []).map((image) => image.publicId),
+      dto.brandId,
+      actor,
+    );
     const data: any = {
       ...productData,
       slug: await this.uniqueSlug(dto.name),
       deliveryStates: dto.deliveryStates || [],
-      images: { create: this.imageCreateData(images, dto.brandId) },
+      images: { create: this.imageCreateData(images, verifiedImages) },
     };
     if (actor.role !== UserRole.ADMIN) {
       delete data.rewardEligible;
@@ -212,7 +220,12 @@ export class ProductService {
     if (product.images.length >= 8) {
       throw new BadRequestException('A product can have at most 8 images');
     }
-    const [imageData] = this.imageCreateData([dto], product.brandId);
+    const verifiedImages = await this.media.verifyProductUploads(
+      [dto.publicId],
+      product.brandId,
+      actor,
+    );
+    const [imageData] = this.imageCreateData([dto], verifiedImages);
     await this.prisma.$transaction(async (transaction) => {
       await this.media.claimProductUploads(
         [dto.publicId],
@@ -293,7 +306,12 @@ export class ProductService {
   ) {
     const product = await this.requireProductAccess(id, actor);
     const existing = this.requireImage(product.images, imageId);
-    const [imageData] = this.imageCreateData([dto], product.brandId);
+    const verifiedImages = await this.media.verifyProductUploads(
+      [dto.publicId],
+      product.brandId,
+      actor,
+    );
+    const [imageData] = this.imageCreateData([dto], verifiedImages);
     await this.prisma.$transaction(async (transaction) => {
       await this.media.claimProductUploads(
         [dto.publicId],
@@ -448,27 +466,28 @@ export class ProductService {
 
   private imageCreateData(
     images: ProductImageInputDto[] | undefined,
-    brandId: string,
+    verifiedImages: CloudinaryImageMetadata[],
   ) {
-    const expectedPrefix = `gadmar/brands/${brandId}/products/`;
     return (images || []).map((image, position) => {
-      let host: string;
-      try {
-        host = new URL(image.secureUrl).hostname;
-      } catch {
+      const metadata = verifiedImages.find(
+        (candidate) => candidate.publicId === image.publicId,
+      );
+      if (!metadata) {
         throw new BadRequestException(
-          'Each product image must have a valid Cloudinary secureUrl',
+          `Image ${image.publicId} is not verified`,
         );
       }
-      if (
-        !image.publicId.startsWith(expectedPrefix) ||
-        host !== 'res.cloudinary.com'
-      ) {
-        throw new BadRequestException(
-          'Product images must come from the signed upload folder for this brand',
-        );
-      }
-      return { ...image, position, isPrimary: position === 0 };
+      return {
+        publicId: metadata.publicId,
+        secureUrl: metadata.secureUrl,
+        width: metadata.width,
+        height: metadata.height,
+        format: metadata.format,
+        bytes: metadata.bytes,
+        altText: image.altText,
+        position,
+        isPrimary: position === 0,
+      };
     });
   }
 

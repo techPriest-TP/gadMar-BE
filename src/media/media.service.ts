@@ -4,10 +4,15 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma, UserRole } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
+import { ConfigService } from '@nestjs/config';
+import {
+  CloudinaryImageMetadata,
+  CloudinaryService,
+} from '../common/cloudinary/cloudinary.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 type Actor = { userId: string; role: UserRole };
@@ -19,6 +24,7 @@ export class MediaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cloudinary: CloudinaryService,
+    private readonly config: ConfigService,
   ) {}
 
   async createProductUploadSignature(brandId: string, actor: Actor) {
@@ -36,6 +42,10 @@ export class MediaService {
     const folder = `gadmar/brands/${brandId}/products`;
     const fileName = randomUUID();
     const publicId = `${folder}/${fileName}`;
+    const backendUrl = this.config
+      .getOrThrow<string>('BACKEND_URL')
+      .replace(/\/+$/, '');
+    const notificationUrl = `${backendUrl}/api/v1/media/cloudinary/webhook`;
     await this.prisma.mediaUpload.create({
       data: {
         publicId,
@@ -45,11 +55,47 @@ export class MediaService {
       },
     });
     return {
-      ...this.cloudinary.createUploadSignature(publicId),
+      ...this.cloudinary.createUploadSignature(publicId, notificationUrl),
       allowedFormats: ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'],
       maxBytes: 10 * 1024 * 1024,
       maxProductImages: 8,
     };
+  }
+
+  async verifyProductUploads(
+    publicIds: string[],
+    brandId: string,
+    actor: Actor,
+  ): Promise<CloudinaryImageMetadata[]> {
+    const verified: CloudinaryImageMetadata[] = [];
+    for (const publicId of publicIds) {
+      const upload = await this.prisma.mediaUpload.findFirst({
+        where: {
+          publicId,
+          brandId,
+          requestedBy: actor.userId,
+          claimedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+      });
+      if (!upload) {
+        throw new BadRequestException(
+          `Image ${publicId} does not have a valid unused upload authorization`,
+        );
+      }
+
+      let metadata = this.metadataFromUpload(upload);
+      if (!metadata) {
+        metadata = await this.cloudinary.getImageMetadata(publicId);
+        this.validateImageMetadata(metadata, publicId, brandId);
+        await this.prisma.mediaUpload.update({
+          where: { id: upload.id },
+          data: { ...metadata, verifiedAt: new Date() },
+        });
+      }
+      verified.push(metadata);
+    }
+    return verified;
   }
 
   async claimProductUploads(
@@ -99,6 +145,40 @@ export class MediaService {
     return removed;
   }
 
+  async handleCloudinaryWebhook(
+    rawBody: string,
+    body: Record<string, unknown>,
+    signature?: string,
+    timestampHeader?: string,
+  ): Promise<void> {
+    const timestamp = Number(timestampHeader);
+    if (
+      !rawBody ||
+      !signature ||
+      !timestampHeader ||
+      !this.cloudinary.verifyNotificationSignature(
+        rawBody,
+        timestamp,
+        signature,
+      )
+    ) {
+      throw new UnauthorizedException('Invalid Cloudinary webhook signature');
+    }
+    if (body.resource_type !== 'image' || body.type !== 'upload') return;
+
+    const metadata = this.cloudinary.normalizeImageMetadata(body);
+    const upload = await this.prisma.mediaUpload.findUnique({
+      where: { publicId: metadata.publicId },
+    });
+    if (!upload) return;
+
+    this.validateImageMetadata(metadata, upload.publicId, upload.brandId);
+    await this.prisma.mediaUpload.update({
+      where: { id: upload.id },
+      data: { ...metadata, verifiedAt: upload.verifiedAt || new Date() },
+    });
+  }
+
   async deleteOrQueue(
     publicId: string,
     brandId: string,
@@ -129,6 +209,68 @@ export class MediaService {
           queueError instanceof Error ? queueError.stack : undefined,
         );
       }
+    }
+  }
+
+  private metadataFromUpload(upload: {
+    assetId: string | null;
+    publicId: string;
+    secureUrl: string | null;
+    width: number | null;
+    height: number | null;
+    format: string | null;
+    bytes: number | null;
+    verifiedAt: Date | null;
+  }): CloudinaryImageMetadata | null {
+    if (
+      !upload.verifiedAt ||
+      !upload.assetId ||
+      !upload.secureUrl ||
+      !upload.width ||
+      !upload.height ||
+      !upload.format ||
+      !upload.bytes
+    ) {
+      return null;
+    }
+    return {
+      assetId: upload.assetId,
+      publicId: upload.publicId,
+      secureUrl: upload.secureUrl,
+      width: upload.width,
+      height: upload.height,
+      format: upload.format,
+      bytes: upload.bytes,
+    };
+  }
+
+  private validateImageMetadata(
+    metadata: CloudinaryImageMetadata,
+    expectedPublicId: string,
+    brandId: string,
+  ): void {
+    const allowedFormats = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
+    let host = '';
+    try {
+      host = new URL(metadata.secureUrl).hostname;
+    } catch {}
+    if (
+      metadata.publicId !== expectedPublicId ||
+      !metadata.publicId.startsWith(`gadmar/brands/${brandId}/products/`) ||
+      !metadata.assetId ||
+      host !== 'res.cloudinary.com' ||
+      !Number.isInteger(metadata.width) ||
+      metadata.width < 1 ||
+      !Number.isInteger(metadata.height) ||
+      metadata.height < 1 ||
+      !Number.isInteger(metadata.bytes) ||
+      metadata.bytes < 1 ||
+      metadata.bytes > 10 * 1024 * 1024 ||
+      !allowedFormats.includes(metadata.format)
+    ) {
+      throw new BadRequestException(
+        'Cloudinary returned invalid product image metadata',
+      );
     }
   }
 }

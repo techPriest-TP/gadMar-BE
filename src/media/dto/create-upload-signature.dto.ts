@@ -18,6 +18,10 @@ export class UploadSignatureResponseDto {
   })
   publicId!: string;
   @ApiProperty({
+    description: 'Send this value to Cloudinary as notification_url',
+  })
+  notificationUrl!: string;
+  @ApiProperty({
     description:
       'Signed Cloudinary preset configured with the documented file constraints',
   })
