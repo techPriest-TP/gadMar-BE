@@ -12,6 +12,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiQuery,
   ApiResponse,
@@ -24,6 +25,7 @@ import type { RequestUser } from '../common/decorators/user.decorator';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { AuthService } from './auth.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/password.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
@@ -55,6 +57,7 @@ export class AuthController {
 
   @Post('login')
   @UseGuards(AuthGuard('local'))
+  @ApiBody({ type: LoginDto })
   @ApiQuery({
     enum: Platform,
     required: false,

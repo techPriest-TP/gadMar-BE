@@ -4,9 +4,15 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import helmet from 'helmet';
+import { setServers } from 'node:dns';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  const dnsServers = process.env.DNS_SERVERS?.split(',')
+    .map((server) => server.trim())
+    .filter(Boolean);
+  if (dnsServers?.length) setServers(dnsServers);
+
   const app = await NestFactory.create(AppModule, { rawBody: true });
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
@@ -49,7 +55,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = configService.get<number>('PORT', 3001);
+  const port = configService.get<number>('PORT', 4500);
   await app.listen(port, '0.0.0.0');
 
   logger.log(`GadMar API is running on http://localhost:${port}/api/v1`);
