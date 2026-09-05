@@ -10,7 +10,14 @@ import {
   Param,
   Req,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ActivityLogService } from './activity-log.service';
 import { CreateActivityLogDto } from './dto/create-activity-log.dto';
@@ -115,10 +122,22 @@ export class ActivityLogController {
   @Get('product/:productId/stats')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
   @ApiOperation({ summary: 'Get product activity statistics' })
+  @ApiParam({
+    name: 'productId',
+    description: 'Product ID to calculate activity stats for.',
+  })
   @ApiQuery({ name: 'days', required: false, type: Number, description: 'Number of days to look back' })
   @ApiResponse({
     status: 200,
     description: 'Product activity statistics',
+    schema: {
+      example: {
+        productId: 'product-id',
+        views: 150,
+        whatsappClicks: 24,
+        conversionRate: 16,
+      },
+    },
   })
   async getProductStats(
     @Param('productId') productId: string,
@@ -133,10 +152,22 @@ export class ActivityLogController {
   @Get('brand/:brandId/stats')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
   @ApiOperation({ summary: 'Get brand activity statistics' })
+  @ApiParam({
+    name: 'brandId',
+    description: 'Brand ID to calculate activity stats for.',
+  })
   @ApiQuery({ name: 'days', required: false, type: Number, description: 'Number of days to look back' })
   @ApiResponse({
     status: 200,
     description: 'Brand activity statistics',
+    schema: {
+      example: {
+        brandId: 'brand-id',
+        views: 300,
+        whatsappClicks: 45,
+        productViews: 220,
+      },
+    },
   })
   async getBrandStats(
     @Param('brandId') brandId: string,
@@ -150,6 +181,18 @@ export class ActivityLogController {
 
   @Get('my-activity')
   @ApiOperation({ summary: 'Get current user activity logs' })
+  @ApiQuery({
+    name: 'skip',
+    required: false,
+    type: Number,
+    description: 'Number of records to skip for pagination.',
+  })
+  @ApiQuery({
+    name: 'take',
+    required: false,
+    type: Number,
+    description: 'Number of records to return for pagination.',
+  })
   @ApiResponse({
     status: 200,
     description: 'List of user activity logs',

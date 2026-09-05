@@ -14,6 +14,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiParam,
   ApiQuery,
   ApiResponse,
   ApiTags,
@@ -64,6 +65,20 @@ export class TransactionIntentController {
   @ApiOperation({
     summary: 'Record a WhatsApp continuation and return its pre-filled URL',
   })
+  @ApiParam({
+    name: 'refCode',
+    example: 'GAD-1A2B3C4D',
+    description: 'Purchase intent reference code generated at checkout.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'WhatsApp continuation recorded',
+    schema: {
+      example: {
+        whatsappUrl: 'https://wa.me/2348012345678?text=Hello...',
+      },
+    },
+  })
   trackWhatsApp(
     @Param('refCode') refCode: string,
     @CurrentUser() user?: RequestUser,
@@ -77,9 +92,36 @@ export class TransactionIntentController {
     summary:
       'List purchase intents visible to the current admin or brand owner',
   })
-  @ApiQuery({ name: 'userId', required: false })
-  @ApiQuery({ name: 'brandId', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: TransactionStatus })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    type: String,
+    description: 'Filter purchase intents by customer user ID.',
+  })
+  @ApiQuery({
+    name: 'brandId',
+    required: false,
+    type: String,
+    description: 'Filter purchase intents by brand ID.',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: TransactionStatus,
+    description: 'Filter purchase intents by lifecycle status.',
+  })
+  @ApiQuery({
+    name: 'skip',
+    required: false,
+    type: Number,
+    description: 'Number of records to skip for pagination.',
+  })
+  @ApiQuery({
+    name: 'take',
+    required: false,
+    type: Number,
+    description: 'Number of records to return for pagination.',
+  })
   @ApiResponse({ status: 200, type: [TransactionIntentWithDetailsDto] })
   findAll(
     @CurrentUser() user: RequestUser,
@@ -114,6 +156,19 @@ export class TransactionIntentController {
   @Get('stats')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get purchase-intent statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase-intent statistics',
+    schema: {
+      example: {
+        total: 25,
+        pending: 8,
+        contacted: 10,
+        confirmed: 7,
+        totalSales: 3500000,
+      },
+    },
+  })
   getStats() {
     return this.service.getStats();
   }
@@ -121,6 +176,12 @@ export class TransactionIntentController {
   @Get('ref/:refCode')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
   @ApiOperation({ summary: 'Get a purchase intent by reference' })
+  @ApiParam({
+    name: 'refCode',
+    example: 'GAD-1A2B3C4D',
+    description: 'Purchase intent reference code generated at checkout.',
+  })
+  @ApiResponse({ status: 200, type: TransactionIntentWithDetailsDto })
   findByRef(
     @Param('refCode') refCode: string,
     @CurrentUser() user: RequestUser,
@@ -131,12 +192,21 @@ export class TransactionIntentController {
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
   @ApiOperation({ summary: 'Get a purchase intent by ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'Purchase intent ID.',
+  })
+  @ApiResponse({ status: 200, type: TransactionIntentWithDetailsDto })
   findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.service.findOneWithDetails(id, user);
   }
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiParam({
+    name: 'id',
+    description: 'Purchase intent ID.',
+  })
   @ApiOperation({
     summary: 'Advance or close a purchase intent',
     description:
@@ -159,6 +229,11 @@ export class TransactionIntentController {
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a purchase intent' })
+  @ApiParam({
+    name: 'id',
+    description: 'Purchase intent ID.',
+  })
+  @ApiResponse({ status: 204, description: 'Purchase intent deleted' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);
   }

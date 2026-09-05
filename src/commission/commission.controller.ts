@@ -9,7 +9,15 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiProperty,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CommissionService } from './commission.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -18,7 +26,14 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole, CommissionStatus } from '@prisma/client';
 
 class CalculateCommissionDto {
+  @ApiProperty({ example: 250000, description: 'Confirmed purchase amount.' })
   transactionAmount: number;
+
+  @ApiProperty({
+    required: false,
+    example: 5,
+    description: 'Optional commission percentage. Defaults to platform config.',
+  })
   commissionRate?: number;
 }
 
@@ -36,6 +51,14 @@ export class CommissionController {
   @ApiResponse({
     status: 200,
     description: 'Commission calculation result',
+    schema: {
+      example: {
+        transactionAmount: 250000,
+        commissionRate: 5,
+        commissionAmount: 12500,
+        brandReceives: 237500,
+      },
+    },
   })
   async calculateCommission(@Body() data: CalculateCommissionDto) {
     return this.commissionService.calculateCommission(
@@ -76,6 +99,18 @@ export class CommissionController {
   @ApiResponse({
     status: 200,
     description: 'Commission statistics',
+    schema: {
+      example: {
+        totalCommissions: 20,
+        pendingCommissions: 7,
+        paidCommissions: 12,
+        waivedCommissions: 1,
+        totalAmount: 450000,
+        pendingAmount: 100000,
+        paidAmount: 330000,
+        waivedAmount: 20000,
+      },
+    },
   })
   async getStats() {
     return this.commissionService.getCommissionStats();
@@ -84,6 +119,18 @@ export class CommissionController {
   @Get('my-commissions')
   @Roles(UserRole.BRAND_OWNER)
   @ApiOperation({ summary: 'Get commissions for brand owner' })
+  @ApiQuery({
+    name: 'skip',
+    required: false,
+    type: Number,
+    description: 'Number of records to skip for pagination.',
+  })
+  @ApiQuery({
+    name: 'take',
+    required: false,
+    type: Number,
+    description: 'Number of records to return for pagination.',
+  })
   @ApiResponse({
     status: 200,
     description: 'List of brand commissions',
@@ -125,6 +172,18 @@ export class CommissionController {
   @ApiResponse({
     status: 200,
     description: 'Brand commission statistics',
+    schema: {
+      example: {
+        totalCommissions: 8,
+        pendingCommissions: 2,
+        paidCommissions: 6,
+        waivedCommissions: 0,
+        totalAmount: 180000,
+        pendingAmount: 45000,
+        paidAmount: 135000,
+        waivedAmount: 0,
+      },
+    },
   })
   async getMyStats(@CurrentUser('userId') userId: string) {
     // Find brands owned by user
@@ -180,9 +239,24 @@ export class CommissionController {
   @Get(':id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get commission by ID (Admin only)' })
+  @ApiParam({
+    name: 'id',
+    description: 'Commission ID.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Commission found',
+    schema: {
+      example: {
+        id: 'commission-id',
+        transactionId: 'transaction-intent-id',
+        brandId: 'brand-id',
+        amount: 12500,
+        rate: 5,
+        status: 'PENDING',
+        createdAt: '2026-09-05T12:00:00.000Z',
+      },
+    },
   })
   @ApiResponse({ status: 404, description: 'Commission not found' })
   async findOne(@Param('id') id: string) {
@@ -193,9 +267,24 @@ export class CommissionController {
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mark commission as paid (Admin only)' })
+  @ApiParam({
+    name: 'id',
+    description: 'Commission ID.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Commission marked as paid',
+    schema: {
+      example: {
+        id: 'commission-id',
+        transactionId: 'transaction-intent-id',
+        brandId: 'brand-id',
+        amount: 12500,
+        rate: 5,
+        status: 'PAID',
+        paidAt: '2026-09-05T12:00:00.000Z',
+      },
+    },
   })
   async markAsPaid(@Param('id') id: string) {
     return this.commissionService.markAsPaid(id);
@@ -205,9 +294,23 @@ export class CommissionController {
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Waive commission (Admin only)' })
+  @ApiParam({
+    name: 'id',
+    description: 'Commission ID.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Commission waived',
+    schema: {
+      example: {
+        id: 'commission-id',
+        transactionId: 'transaction-intent-id',
+        brandId: 'brand-id',
+        amount: 12500,
+        rate: 5,
+        status: 'WAIVED',
+      },
+    },
   })
   async waiveCommission(@Param('id') id: string) {
     return this.commissionService.waiveCommission(id);
@@ -216,11 +319,31 @@ export class CommissionController {
   @Get('brand/:brandId/report')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
   @ApiOperation({ summary: 'Get commission report for a brand' })
+  @ApiParam({
+    name: 'brandId',
+    description: 'Brand ID for the commission report.',
+  })
   @ApiQuery({ name: 'startDate', required: false, type: String, description: 'Start date (ISO format)' })
   @ApiQuery({ name: 'endDate', required: false, type: String, description: 'End date (ISO format)' })
   @ApiResponse({
     status: 200,
     description: 'Brand commission report',
+    schema: {
+      example: {
+        brandId: 'brand-id',
+        commissions: [],
+        stats: {
+          totalCommissions: 8,
+          pendingCommissions: 2,
+          paidCommissions: 6,
+          waivedCommissions: 0,
+          totalAmount: 180000,
+          pendingAmount: 45000,
+          paidAmount: 135000,
+          waivedAmount: 0,
+        },
+      },
+    },
   })
   async getBrandReport(
     @Param('brandId') brandId: string,

@@ -48,7 +48,24 @@ export class AuthController {
 
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
-  @ApiResponse({ status: 201, description: 'User successfully registered' })
+  @ApiResponse({
+    status: 201,
+    description: 'User successfully registered',
+    schema: {
+      example: {
+        message: 'Account created successfully',
+        user: {
+          id: 'user-id',
+          firstName: 'Ada',
+          lastName: 'Okafor',
+          email: 'ada@example.com',
+          phone: '+2348012345678',
+          role: 'USER',
+          createdAt: '2026-09-05T12:00:00.000Z',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
   async register(@Body() registerDto: RegisterDto) {
@@ -62,9 +79,28 @@ export class AuthController {
     enum: Platform,
     required: false,
     name: 'platform',
+    description: 'Client platform requesting the session.',
   })
   @ApiOperation({ summary: 'Login with email and password' })
-  @ApiResponse({ status: 200, description: 'Successfully logged in' })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully logged in',
+    schema: {
+      example: {
+        success: true,
+        message: 'Login successful',
+        data: {
+          user: {
+            id: 'user-id',
+            email: 'ada@example.com',
+            role: 'USER',
+          },
+          accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          refreshToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Req() req, @Query('platform') platform: Platform) {
     return this.authService.login(req.user, platform);
@@ -77,6 +113,16 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'User profile retrieved successfully',
+    schema: {
+      example: {
+        message: 'Profile retrieved successfully',
+        user: {
+          userId: 'user-id',
+          email: 'ada@example.com',
+          role: 'USER',
+        },
+      },
+    },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getProfile(@CurrentUser() user: RequestUser) {
@@ -90,7 +136,16 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Change current user password' })
-  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully',
+    schema: {
+      example: {
+        message: 'Password changed successfully',
+        success: true,
+      },
+    },
+  })
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async changePassword(
@@ -104,13 +159,44 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout current user' })
-  @ApiResponse({ status: 200, description: 'Successfully logged out' })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully logged out',
+    schema: {
+      example: {
+        message: 'Logged out successfully',
+      },
+    },
+  })
   async logout(@CurrentUser() user: RequestUser) {
     return this.authService.logout(user.id);
   }
 
   @Post('refresh-token')
   @ApiOperation({ summary: 'Refresh access token' })
+  @ApiBody({
+    schema: {
+      properties: {
+        refreshToken: {
+          type: 'string',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        },
+      },
+      required: ['refreshToken'],
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Tokens refreshed successfully',
+    schema: {
+      example: {
+        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        refreshToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        message: 'Tokens refreshed successfully',
+        success: true,
+      },
+    },
+  })
   async refreshTokens(@Body() payload: { refreshToken: string }) {
     const tokens = await this.authService.refreshTokens(payload.refreshToken);
     return {
@@ -130,22 +216,70 @@ export class AuthController {
   //   return { message: 'If account exists, email sent', success: true };
   // }
   @Post('forgot-password')
+  @ApiOperation({ summary: 'Request a password reset OTP' })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Password reset OTP request accepted',
+    schema: {
+      example: {
+        message: 'If account exists, email sent',
+        success: true,
+      },
+    },
+  })
   async forgot(@Body() dto: ForgotPasswordDto) {
     return this.authService.requestReset(dto.email);
   }
 
   @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password with OTP' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Password reset successfully',
+    schema: {
+      example: {
+        message: 'Password reset successful',
+        success: true,
+      },
+    },
+  })
   async reset(@Body() dto: ResetPasswordDto) {
     await this.authService.resetPassword(dto.otp, dto.newPassword, dto.email);
     return { message: 'Password reset successful', success: true };
   }
 
   @Post('/otp/request')
+  @ApiOperation({ summary: 'Request an email OTP' })
+  @ApiBody({ type: RequestOtpDto })
+  @ApiResponse({
+    status: 201,
+    description: 'OTP request accepted',
+    schema: {
+      example: {
+        message: 'OTP sent successfully',
+        success: true,
+      },
+    },
+  })
   requestOtp(@Body() dto: RequestOtpDto) {
     return this.otpService.requestOtp(dto.email);
   }
 
   @Post('/otp/verify')
+  @ApiOperation({ summary: 'Verify an email OTP' })
+  @ApiBody({ type: VerifyOtpDto })
+  @ApiResponse({
+    status: 201,
+    description: 'OTP verification result',
+    schema: {
+      example: {
+        message: 'OTP verified successfully',
+        success: true,
+      },
+    },
+  })
   verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.otpService.verifyOtp(dto.email, dto.otp);
   }
@@ -157,6 +291,10 @@ export class AuthController {
     summary: 'Google OAuth signup / login',
     description:
       'Initiates Google OAuth flow. Optionally accepts a redirect URL that the user will be sent to after successful authentication.',
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Redirects the user to Google OAuth.',
   })
   @ApiQuery({
     name: 'redirect',

@@ -24,6 +24,7 @@ async function main() {
   await prisma.transactionIntent.deleteMany();
   await prisma.purchaseBatch.deleteMany();
   await prisma.activityLog.deleteMany();
+  await prisma.productImage.deleteMany();
   await prisma.product.deleteMany();
   await prisma.brand.deleteMany();
   await prisma.user.deleteMany();
@@ -406,36 +407,20 @@ async function main() {
   console.log('✅ Created activity logs:', activities.length);
 
   // Create commissions
-  const commissions = await Promise.all([
-    prisma.commission.create({
-      data: {
-        transactionId: transactions[0].id,
-        brandId: apple.id,
-        amount: 75000,
-        rate: 5.0,
-        status: 'PAID',
-        paidAt: new Date(),
-      },
-    }),
-    prisma.commission.create({
-      data: {
-        transactionId: transactions[1].id,
-        brandId: apple.id,
-        amount: 125000,
-        rate: 5.0,
-        status: 'PENDING',
-      },
-    }),
-    prisma.commission.create({
-      data: {
-        transactionId: transactions[2].id,
-        brandId: samsung.id,
-        amount: 63000,
-        rate: 4.5,
-        status: 'PENDING',
-      },
-    }),
-  ]);
+  const commissions = await Promise.all(
+    transactions.map((transaction, index) =>
+      prisma.commission.create({
+        data: {
+          transactionId: transaction.id,
+          brandId: transaction.brandId,
+          amount: transaction.commission!,
+          rate: (transaction.commission! / transaction.amount!) * 100,
+          status: index === 0 ? 'PAID' : 'PENDING',
+          paidAt: index === 0 ? new Date() : undefined,
+        },
+      }),
+    ),
+  );
   console.log('✅ Created commissions:', commissions.length);
 
   console.log('\n🎉 Database seed completed successfully!');
