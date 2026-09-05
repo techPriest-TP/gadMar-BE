@@ -51,6 +51,7 @@ export class MediaService {
         publicId,
         brandId,
         requestedBy: actor.userId,
+        claimedAt: null,
         expiresAt: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
@@ -74,14 +75,13 @@ export class MediaService {
           publicId,
           brandId,
           requestedBy: actor.userId,
-          claimedAt: null,
+          ...this.unusedUploadWhere(),
           expiresAt: { gt: new Date() },
         },
       });
       if (!upload) {
-        throw new BadRequestException(
-          `Image ${publicId} does not have a valid unused upload authorization`,
-        );
+        await this.throwUploadAuthorizationError(publicId, brandId, actor);
+        continue;
       }
 
       let metadata = this.metadataFromUpload(upload);
@@ -110,22 +110,20 @@ export class MediaService {
           publicId,
           brandId,
           requestedBy: actor.userId,
-          claimedAt: null,
+          ...this.unusedUploadWhere(),
           expiresAt: { gt: new Date() },
         },
         data: { claimedAt: new Date() },
       });
       if (claimed.count !== 1) {
-        throw new BadRequestException(
-          `Image ${publicId} does not have a valid unused upload authorization`,
-        );
+        await this.throwUploadAuthorizationError(publicId, brandId, actor);
       }
     }
   }
 
   async cleanupExpiredUploads(): Promise<number> {
     const uploads = await this.prisma.mediaUpload.findMany({
-      where: { claimedAt: null, expiresAt: { lte: new Date() } },
+      where: { ...this.unusedUploadWhere(), expiresAt: { lte: new Date() } },
       take: 100,
       orderBy: { expiresAt: 'asc' },
     });
@@ -199,6 +197,7 @@ export class MediaService {
             publicId,
             brandId,
             requestedBy,
+            claimedAt: null,
             expiresAt: new Date(),
           },
           update: { claimedAt: null, expiresAt: new Date() },
@@ -242,6 +241,78 @@ export class MediaService {
       format: upload.format,
       bytes: upload.bytes,
     };
+  }
+
+  private unusedUploadWhere(): Prisma.MediaUploadWhereInput {
+    return {
+      OR: [{ claimedAt: null }, { claimedAt: { isSet: false } }],
+    };
+  }
+
+  private async throwUploadAuthorizationError(
+    publicId: string,
+    brandId: string,
+    actor: Actor,
+  ): Promise<never> {
+    const upload = await this.prisma.mediaUpload.findUnique({
+      where: { publicId },
+    });
+
+    if (!upload) {
+      throw new BadRequestException({
+        code: 'UPLOAD_AUTHORIZATION_NOT_FOUND',
+        message:
+          'No upload authorization was found for this image. Request a fresh upload signature and upload the image with the returned publicId.',
+        publicId,
+      });
+    }
+
+    if (upload.brandId !== brandId) {
+      throw new BadRequestException({
+        code: 'UPLOAD_AUTHORIZATION_BRAND_MISMATCH',
+        message:
+          'This upload authorization belongs to a different brand from the product you are attaching the image to.',
+        publicId,
+        expectedBrandId: brandId,
+        uploadBrandId: upload.brandId,
+      });
+    }
+
+    if (upload.requestedBy !== actor.userId) {
+      throw new BadRequestException({
+        code: 'UPLOAD_AUTHORIZATION_USER_MISMATCH',
+        message:
+          'This upload authorization was requested by a different account. Use the same account that requested the upload signature.',
+        publicId,
+      });
+    }
+
+    if (upload.claimedAt) {
+      throw new BadRequestException({
+        code: 'UPLOAD_AUTHORIZATION_ALREADY_USED',
+        message:
+          'This upload authorization has already been used. Request a fresh upload signature for each image.',
+        publicId,
+        claimedAt: upload.claimedAt,
+      });
+    }
+
+    if (upload.expiresAt <= new Date()) {
+      throw new BadRequestException({
+        code: 'UPLOAD_AUTHORIZATION_EXPIRED',
+        message:
+          'This upload authorization has expired. Request a fresh upload signature and upload the image again.',
+        publicId,
+        expiresAt: upload.expiresAt,
+      });
+    }
+
+    throw new BadRequestException({
+      code: 'UPLOAD_AUTHORIZATION_INVALID',
+      message:
+        'This image does not have a valid unused upload authorization. Request a fresh upload signature and try again.',
+      publicId,
+    });
   }
 
   private validateImageMetadata(
