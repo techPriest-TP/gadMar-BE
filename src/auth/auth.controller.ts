@@ -325,7 +325,6 @@ export class AuthController {
   //   };
   // }
 
-  @ApiTags('Web Authentication')
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({

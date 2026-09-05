@@ -29,7 +29,7 @@ import { MediaService } from './media.service';
 import { CloudinaryWebhookDto } from './dto/cloudinary-webhook.dto';
 import type { Request } from 'express';
 
-@ApiTags('Media')
+@ApiTags('Media Uploads')
 @ApiBearerAuth()
 @Controller('media')
 @UseGuards(JwtAuthGuard, RolesGuard)

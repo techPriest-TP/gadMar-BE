@@ -29,7 +29,6 @@ import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole, ActivityType } from '@prisma/client';
 
-@ApiTags('Activity Logs')
 @ApiBearerAuth()
 @Controller('activity-logs')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -39,6 +38,7 @@ export class ActivityLogController {
   @Post()
   @Public()
   @HttpCode(HttpStatus.CREATED)
+  @ApiTags('Public Website')
   @ApiOperation({ summary: 'Log a new activity' })
   @ApiResponse({
     status: 201,
@@ -63,6 +63,7 @@ export class ActivityLogController {
 
   @Get()
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Get all activity logs (Admin only)' })
   @ApiQuery({ name: 'userId', required: false, type: String, description: 'Filter by user ID' })
   @ApiQuery({ name: 'productId', required: false, type: String, description: 'Filter by product ID' })
@@ -101,6 +102,7 @@ export class ActivityLogController {
 
   @Get('stats')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Get activity statistics (Admin only)' })
   @ApiQuery({ name: 'startDate', required: false, type: String, description: 'Start date (ISO format)' })
   @ApiQuery({ name: 'endDate', required: false, type: String, description: 'End date (ISO format)' })
@@ -121,6 +123,7 @@ export class ActivityLogController {
 
   @Get('product/:productId/stats')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Get product activity statistics' })
   @ApiParam({
     name: 'productId',
@@ -151,6 +154,7 @@ export class ActivityLogController {
 
   @Get('brand/:brandId/stats')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Get brand activity statistics' })
   @ApiParam({
     name: 'brandId',
@@ -180,6 +184,7 @@ export class ActivityLogController {
   }
 
   @Get('my-activity')
+  @ApiTags('Customer Dashboard')
   @ApiOperation({ summary: 'Get current user activity logs' })
   @ApiQuery({
     name: 'skip',

@@ -37,7 +37,7 @@ class ValidatePhoneDto {
   phoneNumber: string;
 }
 
-@ApiTags('WhatsApp')
+@ApiTags('Public Website')
 @ApiBearerAuth()
 @Controller('whatsapp')
 @UseGuards(JwtAuthGuard, RolesGuard)

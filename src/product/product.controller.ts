@@ -47,7 +47,6 @@ import {
 } from './dto/product-image-management.dto';
 import { ProductService } from './product.service';
 
-@ApiTags('Products')
 @ApiBearerAuth()
 @Controller('products')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -56,6 +55,7 @@ export class ProductController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({
     summary: 'Create a product for an owned brand',
     description:
@@ -74,6 +74,7 @@ export class ProductController {
 
   @Get()
   @Public()
+  @ApiTags('Public Website')
   @ApiOperation({ summary: 'Browse products from verified brands' })
   @ApiQuery({ name: 'condition', enum: ProductCondition, required: false })
   @ApiQuery({ name: 'stockStatus', enum: StockStatus, required: false })
@@ -139,6 +140,7 @@ export class ProductController {
 
   @Get('categories')
   @Public()
+  @ApiTags('Public Website')
   @ApiOperation({
     summary: 'List categories containing active products from verified brands',
   })
@@ -152,6 +154,7 @@ export class ProductController {
 
   @Get('category/:category')
   @Public()
+  @ApiTags('Public Website')
   @ApiOperation({ summary: 'Browse active products in a category' })
   @ApiParam({ name: 'category', example: 'Smartphones' })
   @ApiResponse({ status: 200, type: [ProductResponseDto] })
@@ -161,6 +164,7 @@ export class ProductController {
 
   @Get('brand/:brandId')
   @Public()
+  @ApiTags('Public Website', 'Brand Owner Dashboard')
   @ApiOperation({ summary: 'Browse active products for a verified brand' })
   @ApiParam({ name: 'brandId', description: 'Brand ObjectId' })
   @ApiResponse({ status: 200, type: [ProductResponseDto] })
@@ -170,6 +174,7 @@ export class ProductController {
 
   @Get('slug/:slug')
   @Public()
+  @ApiTags('Public Website')
   @ApiOperation({ summary: 'Get an active product by its public slug' })
   @ApiParam({ name: 'slug', example: 'iphone-15-pro-max' })
   @ApiResponse({ status: 200, type: ProductWithBrandDto })
@@ -183,6 +188,7 @@ export class ProductController {
 
   @Get(':id')
   @Public()
+  @ApiTags('Public Website')
   @ApiOperation({ summary: 'Get an active product by ID' })
   @ApiParam({ name: 'id', description: 'Product ObjectId' })
   @ApiResponse({ status: 200, type: ProductWithBrandDto })
@@ -196,6 +202,7 @@ export class ProductController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Update an owned product' })
   @ApiBody({ type: UpdateProductDto })
   @ApiResponse({ status: 200, type: ProductResponseDto })
@@ -213,6 +220,7 @@ export class ProductController {
 
   @Post(':productId/images')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Attach one authorized upload to a product' })
   @ApiResponse({ status: 201, type: ProductResponseDto })
   addImage(
@@ -225,6 +233,7 @@ export class ProductController {
 
   @Patch(':productId/images/reorder')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({
     summary: 'Reorder all product images',
     description: 'imageIds must contain every current image exactly once.',
@@ -244,6 +253,7 @@ export class ProductController {
 
   @Patch(':productId/images/:imageId/primary')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Make a product image the primary image' })
   @ApiResponse({ status: 200, type: ProductResponseDto })
   setPrimaryImage(
@@ -260,6 +270,7 @@ export class ProductController {
 
   @Patch(':productId/images/:imageId')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Update product image metadata' })
   @ApiResponse({ status: 200, type: ProductResponseDto })
   updateImage(
@@ -278,6 +289,7 @@ export class ProductController {
 
   @Put(':productId/images/:imageId')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({
     summary: 'Replace one product image with a new authorized upload',
   })
@@ -298,6 +310,7 @@ export class ProductController {
 
   @Delete(':productId/images/:imageId')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({
     summary: 'Delete one product image from GadMar and Cloudinary',
   })
@@ -317,6 +330,7 @@ export class ProductController {
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Delete an owned product' })
   @ApiResponse({ status: 204, description: 'Product deleted' })
   @ApiResponse({

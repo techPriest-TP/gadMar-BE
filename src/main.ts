@@ -41,15 +41,13 @@ async function bootstrap() {
     .setDescription('API for the GadMar multi-brand gadget marketplace')
     .setVersion('1.0.0')
     .addBearerAuth()
-    .addTag('Auth', 'Authentication endpoints')
-    .addTag('Users', 'User management')
-    .addTag('Brands', 'Brand management')
-    .addTag('Products', 'Product management')
-    .addTag('Media', 'Direct image upload authorization')
-    .addTag('Transactions', 'Purchase intent tracking')
-    .addTag('Rewards', 'Reward system')
-    .addTag('Analytics', 'Analytics and reporting')
-    .addTag('Admin', 'Admin operations')
+    .addTag('Authentication', 'Account, login, password, OTP, and OAuth endpoints')
+    .addTag('Public Website', 'Guest-facing browsing, storefront, WhatsApp, and purchase-intent endpoints')
+    .addTag('Customer Dashboard', 'Customer profile, purchase tracking, credits, and activity endpoints')
+    .addTag('Brand Owner Dashboard', 'Brand-owned stores, products, purchase intents, commissions, and analytics endpoints')
+    .addTag('Super Admin Dashboard', 'Platform administration, verification, moderation, reconciliation, and reporting endpoints')
+    .addTag('Media Uploads', 'Direct image upload authorization and Cloudinary webhook endpoints')
+    .addTag('System', 'Health and infrastructure endpoints')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

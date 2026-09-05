@@ -35,7 +35,6 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole, RewardStatus, RewardType } from '@prisma/client';
 
-@ApiTags('GadMar Credits')
 @ApiBearerAuth()
 @Controller('rewards')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -45,6 +44,7 @@ export class RewardController {
   @Post()
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({
     summary: 'Create a manual credit entry (Admin only)',
     description:
@@ -74,6 +74,7 @@ export class RewardController {
 
   @Get()
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({
     summary: 'Get all GadMar Credits entries (Admin only)',
     description:
@@ -106,6 +107,7 @@ export class RewardController {
   }
 
   @Get('my-rewards')
+  @ApiTags('Customer Dashboard')
   @ApiOperation({
     summary: 'Get current user GadMar Credits entries',
     description:
@@ -152,6 +154,7 @@ export class RewardController {
   }
 
   @Get('my-streak')
+  @ApiTags('Customer Dashboard')
   @ApiOperation({
     summary: 'Get current user legacy purchase streak',
     description:
@@ -167,6 +170,7 @@ export class RewardController {
   }
 
   @Get('my-credit-summary')
+  @ApiTags('Customer Dashboard')
   @ApiOperation({
     summary: 'Get current user GadMar Credits summary',
     description:
@@ -206,6 +210,7 @@ export class RewardController {
 
   @Get('stats')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({
     summary: 'Get GadMar Credits statistics (Admin only)',
     description:
@@ -222,6 +227,7 @@ export class RewardController {
 
   @Get('credit-summary')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({
     summary: 'Get platform GadMar Credits summary (Admin only)',
     description:
@@ -258,6 +264,7 @@ export class RewardController {
   }
 
   @Get('my-stats')
+  @ApiTags('Customer Dashboard')
   @ApiOperation({
     summary: 'Get current user GadMar Credits statistics',
     description:
@@ -274,6 +281,7 @@ export class RewardController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Get credit entry by ID (Admin only)' })
   @ApiParam({ name: 'id', description: 'Credit entry ID.' })
   @ApiResponse({
@@ -288,6 +296,7 @@ export class RewardController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({
     summary: 'Update credit entry (Admin only)',
     description:
@@ -308,6 +317,7 @@ export class RewardController {
 
   @Post(':id/claim')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Customer Dashboard')
   @ApiOperation({
     summary: 'Withdraw available credits',
     description:
@@ -356,6 +366,7 @@ export class RewardController {
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Delete credit entry (Admin only)' })
   @ApiParam({ name: 'id', description: 'Credit entry ID.' })
   @ApiResponse({ status: 204, description: 'Credit entry deleted successfully' })

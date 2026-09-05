@@ -21,7 +21,6 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
 
-@ApiTags('Users')
 @ApiBearerAuth()
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -31,6 +30,7 @@ export class UserController {
   @Post()
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Create a new user (Admin only)' })
   @ApiResponse({
     status: 201,
@@ -43,6 +43,7 @@ export class UserController {
 
   @Get()
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Get all users (Admin only)' })
   @ApiResponse({
     status: 200,
@@ -54,6 +55,7 @@ export class UserController {
   }
 
   @Get('me')
+  @ApiTags('Customer Dashboard')
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({
     status: 200,
@@ -65,6 +67,7 @@ export class UserController {
   }
 
   @Get('me/dashboard')
+  @ApiTags('Customer Dashboard')
   @ApiOperation({ summary: 'Get current user dashboard' })
   @ApiResponse({
     status: 200,
@@ -76,6 +79,7 @@ export class UserController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Get user by ID (Admin only)' })
   @ApiResponse({
     status: 200,
@@ -89,6 +93,7 @@ export class UserController {
 
   @Get(':id/stats')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Get user statistics (Admin only)' })
   @ApiResponse({
     status: 200,
@@ -101,6 +106,7 @@ export class UserController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Update user (Admin only)' })
   @ApiResponse({
     status: 200,
@@ -117,6 +123,7 @@ export class UserController {
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Delete user (Admin only)' })
   @ApiResponse({ status: 204, description: 'User deleted successfully' })
   async remove(@Param('id') id: string): Promise<void> {

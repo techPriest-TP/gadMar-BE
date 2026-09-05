@@ -6,7 +6,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 
-@ApiTags('Analytics')
+@ApiTags('Super Admin Dashboard')
 @ApiBearerAuth()
 @Controller('analytics')
 @UseGuards(JwtAuthGuard, RolesGuard)

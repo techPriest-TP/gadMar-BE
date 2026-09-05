@@ -35,7 +35,6 @@ import {
 import { UpdateTransactionIntentDto } from './dto/update-transaction-intent.dto';
 import { TransactionIntentService } from './transaction-intent.service';
 
-@ApiTags('Purchase Intents')
 @ApiBearerAuth()
 @Controller('transaction-intents')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -46,6 +45,7 @@ export class TransactionIntentController {
   @Public()
   @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
+  @ApiTags('Public Website', 'Customer Dashboard')
   @ApiOperation({
     summary: 'Create purchase intents from a cart',
     description:
@@ -62,6 +62,7 @@ export class TransactionIntentController {
   @Post('ref/:refCode/whatsapp')
   @Public()
   @UseGuards(OptionalJwtAuthGuard)
+  @ApiTags('Public Website', 'Customer Dashboard')
   @ApiOperation({
     summary: 'Record a WhatsApp continuation and return its pre-filled URL',
   })
@@ -88,6 +89,7 @@ export class TransactionIntentController {
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({
     summary:
       'List purchase intents visible to the current admin or brand owner',
@@ -144,6 +146,7 @@ export class TransactionIntentController {
   }
 
   @Get('my-transactions')
+  @ApiTags('Customer Dashboard')
   @ApiOperation({
     summary:
       'List the current user’s purchase batches, including each brand-specific intent',
@@ -155,6 +158,7 @@ export class TransactionIntentController {
 
   @Get('stats')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Get purchase-intent statistics' })
   @ApiResponse({
     status: 200,
@@ -175,6 +179,7 @@ export class TransactionIntentController {
 
   @Get('ref/:refCode')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Get a purchase intent by reference' })
   @ApiParam({
     name: 'refCode',
@@ -191,6 +196,7 @@ export class TransactionIntentController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Get a purchase intent by ID' })
   @ApiParam({
     name: 'id',
@@ -203,6 +209,7 @@ export class TransactionIntentController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiParam({
     name: 'id',
     description: 'Purchase intent ID.',
@@ -228,6 +235,7 @@ export class TransactionIntentController {
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Delete a purchase intent' })
   @ApiParam({
     name: 'id',

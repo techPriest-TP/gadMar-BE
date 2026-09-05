@@ -37,7 +37,6 @@ class CalculateCommissionDto {
   commissionRate?: number;
 }
 
-@ApiTags('Commissions')
 @ApiBearerAuth()
 @Controller('commissions')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -47,6 +46,7 @@ export class CommissionController {
   @Post('calculate')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Calculate commission for a transaction amount' })
   @ApiResponse({
     status: 200,
@@ -69,6 +69,7 @@ export class CommissionController {
 
   @Get()
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Get all commissions (Admin only)' })
   @ApiQuery({ name: 'brandId', required: false, type: String, description: 'Filter by brand ID' })
   @ApiQuery({ name: 'status', required: false, enum: CommissionStatus, description: 'Filter by status' })
@@ -95,6 +96,7 @@ export class CommissionController {
 
   @Get('stats')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Get commission statistics (Admin only)' })
   @ApiResponse({
     status: 200,
@@ -118,6 +120,7 @@ export class CommissionController {
 
   @Get('my-commissions')
   @Roles(UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard')
   @ApiOperation({ summary: 'Get commissions for brand owner' })
   @ApiQuery({
     name: 'skip',
@@ -168,6 +171,7 @@ export class CommissionController {
 
   @Get('my-stats')
   @Roles(UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard')
   @ApiOperation({ summary: 'Get commission statistics for brand owner' })
   @ApiResponse({
     status: 200,
@@ -238,6 +242,7 @@ export class CommissionController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Get commission by ID (Admin only)' })
   @ApiParam({
     name: 'id',
@@ -266,6 +271,7 @@ export class CommissionController {
   @Post(':id/pay')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Mark commission as paid (Admin only)' })
   @ApiParam({
     name: 'id',
@@ -293,6 +299,7 @@ export class CommissionController {
   @Post(':id/waive')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Waive commission (Admin only)' })
   @ApiParam({
     name: 'id',
@@ -318,6 +325,7 @@ export class CommissionController {
 
   @Get('brand/:brandId/report')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Get commission report for a brand' })
   @ApiParam({
     name: 'brandId',

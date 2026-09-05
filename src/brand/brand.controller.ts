@@ -12,7 +12,6 @@ import { BrandResponseDto, BrandStorefrontDto, BrandWithStatsDto } from './dto/b
 import { CreateBrandDto } from './dto/create-brand.dto';
 import { ReviewBrandDto, UpdateBrandDto } from './dto/update-brand.dto';
 
-@ApiTags('Brands')
 @ApiBearerAuth()
 @Controller('brands')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -21,6 +20,7 @@ export class BrandController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Create a brand or submit a brand for verification' })
   @ApiBody({ type: CreateBrandDto })
   @ApiResponse({ status: 201, description: 'Brand created with pending verification status', type: BrandResponseDto })
@@ -32,6 +32,7 @@ export class BrandController {
 
   @Get()
   @Public()
+  @ApiTags('Public Website')
   @ApiQuery({ name: 'region', enum: NigerianRegion, required: false })
   @ApiQuery({ name: 'state', required: false })
   @ApiQuery({ name: 'deliveryState', required: false })
@@ -61,12 +62,14 @@ export class BrandController {
 
   @Get('featured')
   @Public()
+  @ApiTags('Public Website')
   @ApiOperation({ summary: 'Get currently featured verified brands' })
   @ApiResponse({ status: 200, type: [BrandResponseDto] })
   findFeatured() { return this.brandService.findFeatured(); }
 
   @Get('admin/all')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'List brands for administration and verification' })
   @ApiQuery({ name: 'status', enum: BrandStatus, required: false })
   @ApiResponse({ status: 200, type: [BrandResponseDto] })
@@ -77,12 +80,14 @@ export class BrandController {
 
   @Get('my-brands')
   @Roles(UserRole.BRAND_OWNER, UserRole.ADMIN)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'List brands owned by the authenticated user' })
   @ApiResponse({ status: 200, type: [BrandResponseDto] })
   findMine(@CurrentUser('userId') userId: string) { return this.brandService.findByOwner(userId); }
 
   @Get('slug/:slug/store')
   @Public()
+  @ApiTags('Public Website')
   @ApiOperation({ summary: 'Get a verified brand storefront', description: 'Returns store information and active products for the shareable public storefront.' })
   @ApiParam({ name: 'slug', example: 'oico-techs' })
   @ApiResponse({ status: 200, type: BrandStorefrontDto })
@@ -91,6 +96,7 @@ export class BrandController {
 
   @Get('slug/:slug')
   @Public()
+  @ApiTags('Public Website')
   @ApiOperation({ summary: 'Get a verified brand trust profile by slug' })
   @ApiParam({ name: 'slug', example: 'oico-techs' })
   @ApiResponse({ status: 200, type: BrandResponseDto })
@@ -99,6 +105,7 @@ export class BrandController {
 
   @Get(':id/stats')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Get operational statistics for an owned brand' })
   @ApiParam({ name: 'id', description: 'Brand ObjectId' })
   @ApiResponse({ status: 200, type: BrandWithStatsDto })
@@ -109,6 +116,7 @@ export class BrandController {
 
   @Get(':id')
   @Public()
+  @ApiTags('Public Website')
   @ApiOperation({ summary: 'Get a verified brand trust profile by ID' })
   @ApiParam({ name: 'id', description: 'Brand ObjectId' })
   @ApiResponse({ status: 200, type: BrandResponseDto })
@@ -117,6 +125,7 @@ export class BrandController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
   @ApiOperation({ summary: 'Update an owned brand profile or storefront' })
   @ApiBody({ type: UpdateBrandDto })
   @ApiResponse({ status: 200, type: BrandResponseDto })
@@ -127,6 +136,7 @@ export class BrandController {
 
   @Patch(':id/verification')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Review or change brand verification status' })
   @ApiBody({ type: ReviewBrandDto })
   @ApiResponse({ status: 200, type: BrandResponseDto })
@@ -135,6 +145,7 @@ export class BrandController {
 
   @Post(':id/featured')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Feature a brand', description: 'Optionally provide an ISO date in the until query parameter.' })
   @ApiQuery({ name: 'until', type: String, required: false, example: '2027-12-31T23:59:59.000Z' })
   @ApiResponse({ status: 200, type: BrandResponseDto })
@@ -144,6 +155,7 @@ export class BrandController {
 
   @Delete(':id/featured')
   @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Remove featured status from a brand' })
   @ApiResponse({ status: 200, type: BrandResponseDto })
   removeFeatured(@Param('id') id: string) { return this.brandService.removeFeatured(id); }
@@ -151,6 +163,7 @@ export class BrandController {
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiTags('Super Admin Dashboard')
   @ApiOperation({ summary: 'Delete a brand' })
   @ApiResponse({ status: 204, description: 'Brand deleted' })
   @ApiResponse({ status: 403, description: 'Admin role required' })
