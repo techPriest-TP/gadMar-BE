@@ -289,7 +289,7 @@ export class TransactionIntentService {
         intent.userId &&
         intent.items.some((item) => item.rewardEligible)
       ) {
-        await this.rewardService.checkAndIssueStreakReward(intent.userId);
+        await this.rewardService.issuePurchaseCreditsForConfirmedIntent(id);
       }
       return intent;
     }
@@ -364,7 +364,7 @@ export class TransactionIntentService {
 
     if (dto.status === TransactionStatus.CONFIRMED) {
       if (intent.userId && intent.items.some((item) => item.rewardEligible)) {
-        await this.rewardService.checkAndIssueStreakReward(intent.userId);
+        await this.rewardService.issuePurchaseCreditsForConfirmedIntent(id);
       }
     }
     return this.findOneWithDetails(id, actor);

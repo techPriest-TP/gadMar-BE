@@ -257,15 +257,21 @@ model Reward {
   id          String       @id @default(auto()) @map("_id") @db.ObjectId
   userId      String       @db.ObjectId
   user        User         @relation("userRewards", fields: [userId], references: [id])
-  type        RewardType   @default(PURCHASE_STREAK)
+  type        RewardType   @default(BASE_PURCHASE_CREDIT)
   amount      Float
   status      RewardStatus @default(PENDING)
   description String?
+  transactionId String?      @db.ObjectId
+  commissionId  String?      @db.ObjectId
+  availableAt   DateTime?
   claimedAt   DateTime?
+  withdrawnAt  DateTime?
   expiresAt   DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  @@index([transactionId])
+  @@index([commissionId])
   @@map("rewards")
 }
 
@@ -391,6 +397,11 @@ enum TransactionStatus {
 }
 
 enum RewardType {
+  BASE_PURCHASE_CREDIT
+  FIRST_PURCHASE_BONUS
+  LAUNCH_CAMPAIGN_BONUS
+  CATEGORY_BOOST_BONUS
+  MANUAL_CREDIT
   PURCHASE_STREAK
   REFERRAL
   LOYALTY
@@ -399,6 +410,8 @@ enum RewardType {
 
 enum RewardStatus {
   PENDING
+  AVAILABLE
+  WITHDRAWN
   CLAIMED
   EXPIRED
   CANCELLED

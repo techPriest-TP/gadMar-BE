@@ -317,41 +317,6 @@ async function main() {
   );
   console.log('✅ Created transaction intents:', transactions.length);
 
-  // Create rewards
-  const rewards = await Promise.all([
-    prisma.reward.create({
-      data: {
-        userId: user1.id,
-        type: RewardType.PURCHASE_STREAK,
-        amount: 3000,
-        status: RewardStatus.CLAIMED,
-        description: '3 purchase streak reward',
-        claimedAt: new Date(),
-      },
-    }),
-    prisma.reward.create({
-      data: {
-        userId: user1.id,
-        type: RewardType.PURCHASE_STREAK,
-        amount: 3000,
-        status: RewardStatus.PENDING,
-        description: '6 purchase streak reward',
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    }),
-    prisma.reward.create({
-      data: {
-        userId: user2.id,
-        type: RewardType.LOYALTY,
-        amount: 1000,
-        status: RewardStatus.PENDING,
-        description: 'Welcome loyalty reward',
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    }),
-  ]);
-  console.log('✅ Created rewards:', rewards.length);
-
   // Create activity logs
   const activities = await Promise.all([
     prisma.activityLog.create({
@@ -422,6 +387,51 @@ async function main() {
     ),
   );
   console.log('✅ Created commissions:', commissions.length);
+
+  // Create GadMar Credits. Paid commission unlocks available credits; unpaid
+  // commission keeps customer credits pending.
+  const rewardExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const customerRewardShare = 0.4;
+  const rewards = await Promise.all([
+    prisma.reward.create({
+      data: {
+        userId: user1.id,
+        type: RewardType.BASE_PURCHASE_CREDIT,
+        amount: Math.round(commissions[0].amount * customerRewardShare * 100) / 100,
+        status: RewardStatus.AVAILABLE,
+        description: 'Base GadMar Credits from 40% of paid GadMar commission',
+        transactionId: transactions[0].id,
+        commissionId: commissions[0].id,
+        availableAt: commissions[0].paidAt,
+        expiresAt: rewardExpiry,
+      },
+    }),
+    prisma.reward.create({
+      data: {
+        userId: user1.id,
+        type: RewardType.BASE_PURCHASE_CREDIT,
+        amount: Math.round(commissions[1].amount * customerRewardShare * 100) / 100,
+        status: RewardStatus.PENDING,
+        description:
+          'Base GadMar Credits pending brand commission reconciliation',
+        transactionId: transactions[1].id,
+        commissionId: commissions[1].id,
+        expiresAt: rewardExpiry,
+      },
+    }),
+    prisma.reward.create({
+      data: {
+        userId: user2.id,
+        type: RewardType.MANUAL_CREDIT,
+        amount: 5000,
+        status: RewardStatus.AVAILABLE,
+        description: 'Manual launch credit for early customer testing',
+        availableAt: new Date(),
+        expiresAt: rewardExpiry,
+      },
+    }),
+  ]);
+  console.log('✅ Created GadMar Credits:', rewards.length);
 
   console.log('\n🎉 Database seed completed successfully!');
   console.log('\nTest Accounts:');

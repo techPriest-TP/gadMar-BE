@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { CommissionStatus, TransactionStatus } from '@prisma/client';
+import { RewardService } from '../reward/reward.service';
 
 export interface CommissionCalculation {
   transactionAmount: number;
@@ -17,6 +18,7 @@ export class CommissionService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
+    private rewardService: RewardService,
   ) {
     this.defaultCommissionRate = this.configService.get<number>(
       'DEFAULT_COMMISSION_RATE',
@@ -153,6 +155,7 @@ export class CommissionService {
         paidAt: new Date(),
       },
     });
+    await this.rewardService.unlockCreditsForPaidCommission(id);
 
     return updatedCommission;
   }
