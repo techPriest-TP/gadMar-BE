@@ -192,30 +192,40 @@ model MediaUpload {
 }
 
 model TransactionIntent {
-  id              String                  @id @default(auto()) @map("_id") @db.ObjectId
-  batchId         String                  @db.ObjectId
-  batch           PurchaseBatch           @relation(fields: [batchId], references: [id])
-  userId          String?                 @db.ObjectId
-  user            User?                   @relation("userTransactions", fields: [userId], references: [id])
-  productId       String?                 @db.ObjectId
-  product         Product?                @relation(fields: [productId], references: [id])
-  brandId         String                  @db.ObjectId
-  brand           Brand                   @relation(fields: [brandId], references: [id])
-  status          TransactionStatus       @default(PENDING)
-  refCode         String                  @unique
-  amount          Float?
-  finalAmount     Float?
-  commission      Float?
-  completedAt     DateTime?
-  contactedAt     DateTime?
-  expiresAt       DateTime?
-  whatsappMessage String
-  whatsappUrl     String
-  items           TransactionIntentItem[]
-  commissionRecord Commission?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  id                            String                         @id @default(auto()) @map("_id") @db.ObjectId
+  batchId                       String                         @db.ObjectId
+  batch                         PurchaseBatch                  @relation(fields: [batchId], references: [id])
+  userId                        String?                        @db.ObjectId
+  user                          User?                          @relation("userTransactions", fields: [userId], references: [id])
+  productId                     String?                        @db.ObjectId
+  product                       Product?                       @relation(fields: [productId], references: [id])
+  brandId                       String                         @db.ObjectId
+  brand                         Brand                          @relation(fields: [brandId], references: [id])
+  status                        TransactionStatus              @default(PENDING)
+  refCode                       String                         @unique
+  amount                        Float?
+  finalAmount                   Float?
+  commission                    Float?
+  completedAt                   DateTime?
+  confirmationSource            TransactionConfirmationSource?
+  confirmedById                 String?                        @db.ObjectId
+  confirmationNote              String?
+  confirmationLinkToken         String?
+  confirmationLinkFinalAmount   Float?
+  confirmationLinkGeneratedById String?                        @db.ObjectId
+  confirmationLinkGeneratedAt   DateTime?
+  confirmationLinkExpiresAt     DateTime?
+  contactedAt                   DateTime?
+  expiresAt                     DateTime?
+  whatsappMessage               String
+  whatsappUrl                   String
+  items                         TransactionIntentItem[]
+  commissionRecord              Commission?
+  confirmationProofs            TransactionConfirmationProof[]
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime                       @updatedAt
 
+  @@index([confirmationLinkToken])
   @@map("transaction_intents")
 }
 
@@ -254,21 +264,21 @@ model TransactionIntentItem {
 }
 
 model Reward {
-  id          String       @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String       @db.ObjectId
-  user        User         @relation("userRewards", fields: [userId], references: [id])
-  type        RewardType   @default(BASE_PURCHASE_CREDIT)
-  amount      Float
-  status      RewardStatus @default(PENDING)
-  description String?
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String       @db.ObjectId
+  user          User         @relation("userRewards", fields: [userId], references: [id])
+  type          RewardType   @default(BASE_PURCHASE_CREDIT)
+  amount        Float
+  status        RewardStatus @default(PENDING)
+  description   String?
   transactionId String?      @db.ObjectId
   commissionId  String?      @db.ObjectId
   availableAt   DateTime?
-  claimedAt   DateTime?
-  withdrawnAt  DateTime?
-  expiresAt   DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  claimedAt     DateTime?
+  withdrawnAt   DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@index([transactionId])
   @@index([commissionId])
@@ -294,19 +304,40 @@ model ActivityLog {
 }
 
 model Commission {
-  id            String           @id @default(auto()) @map("_id") @db.ObjectId
-  transactionId String           @unique @db.ObjectId
+  id            String            @id @default(auto()) @map("_id") @db.ObjectId
+  transactionId String            @unique @db.ObjectId
   transaction   TransactionIntent @relation(fields: [transactionId], references: [id], onDelete: NoAction)
-  brandId       String           @db.ObjectId
-  brand         Brand            @relation(fields: [brandId], references: [id], onDelete: NoAction)
+  brandId       String            @db.ObjectId
+  brand         Brand             @relation(fields: [brandId], references: [id], onDelete: NoAction)
   amount        Float
   rate          Float
-  status        CommissionStatus @default(PENDING)
+  status        CommissionStatus  @default(PENDING)
   paidAt        DateTime?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@map("commissions")
+}
+
+model TransactionConfirmationProof {
+  id               String                  @id @default(auto()) @map("_id") @db.ObjectId
+  transactionId    String                  @db.ObjectId
+  transaction      TransactionIntent       @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  userId           String                  @db.ObjectId
+  confirmationLink String
+  finalAmount      Float
+  status           ConfirmationProofStatus @default(PENDING)
+  note             String?
+  reviewedById     String?                 @db.ObjectId
+  reviewedAt       DateTime?
+  reviewNote       String?
+  rejectionReason  String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([transactionId, status])
+  @@index([userId])
+  @@map("transaction_confirmation_proofs")
 }
 
 model UserDeviceToken {
@@ -394,6 +425,19 @@ enum TransactionStatus {
   CONFIRMED
   CANCELLED
   EXPIRED
+}
+
+enum TransactionConfirmationSource {
+  BRAND_DIRECT
+  ADMIN_DIRECT
+  CUSTOMER_PROOF
+  LEGACY_STATUS_UPDATE
+}
+
+enum ConfirmationProofStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum RewardType {

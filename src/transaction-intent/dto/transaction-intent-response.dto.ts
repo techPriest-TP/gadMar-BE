@@ -1,5 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TransactionStatus } from '@prisma/client';
+import {
+  ConfirmationProofStatus,
+  TransactionConfirmationSource,
+  TransactionStatus,
+} from '@prisma/client';
 
 export class TransactionIntentItemResponseDto {
   @ApiProperty() productId: string;
@@ -20,6 +24,13 @@ export class TransactionIntentResponseDto {
   @ApiProperty() refCode: string;
   @ApiProperty() amount: number;
   @ApiPropertyOptional() finalAmount?: number;
+  @ApiPropertyOptional({ enum: TransactionConfirmationSource })
+  confirmationSource?: TransactionConfirmationSource;
+  @ApiPropertyOptional() confirmedById?: string;
+  @ApiPropertyOptional() confirmationNote?: string;
+  @ApiPropertyOptional() confirmationLinkGeneratedById?: string;
+  @ApiPropertyOptional() confirmationLinkGeneratedAt?: Date;
+  @ApiPropertyOptional() confirmationLinkExpiresAt?: Date;
   @ApiProperty() whatsappMessage: string;
   @ApiProperty() whatsappUrl: string;
   @ApiPropertyOptional() contactedAt?: Date;
@@ -28,8 +39,30 @@ export class TransactionIntentResponseDto {
 }
 
 export class TransactionIntentWithDetailsDto extends TransactionIntentResponseDto {
-  @ApiProperty({ type: [TransactionIntentItemResponseDto] }) items: TransactionIntentItemResponseDto[];
+  @ApiProperty({ type: [TransactionIntentItemResponseDto] })
+  items: TransactionIntentItemResponseDto[];
   @ApiProperty() brand: { id: string; name: string; whatsappLink: string };
+  @ApiPropertyOptional({
+    type: () => [TransactionConfirmationProofResponseDto],
+  })
+  confirmationProofs?: TransactionConfirmationProofResponseDto[];
+}
+
+export class TransactionConfirmationProofResponseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() transactionId: string;
+  @ApiProperty() userId: string;
+  @ApiProperty() confirmationLink: string;
+  @ApiProperty() finalAmount: number;
+  @ApiProperty({ enum: ConfirmationProofStatus })
+  status: ConfirmationProofStatus;
+  @ApiPropertyOptional() note?: string;
+  @ApiPropertyOptional() reviewedById?: string;
+  @ApiPropertyOptional() reviewedAt?: Date;
+  @ApiPropertyOptional() reviewNote?: string;
+  @ApiPropertyOptional() rejectionReason?: string;
+  @ApiProperty() createdAt: Date;
+  @ApiProperty() updatedAt: Date;
 }
 
 export class PurchaseBatchResponseDto {
@@ -39,6 +72,7 @@ export class PurchaseBatchResponseDto {
   @ApiPropertyOptional() guestName?: string;
   @ApiPropertyOptional() guestPhone?: string;
   @ApiPropertyOptional() guestEmail?: string;
-  @ApiProperty({ type: [TransactionIntentWithDetailsDto] }) intents: TransactionIntentWithDetailsDto[];
+  @ApiProperty({ type: [TransactionIntentWithDetailsDto] })
+  intents: TransactionIntentWithDetailsDto[];
   @ApiProperty() createdAt: Date;
 }

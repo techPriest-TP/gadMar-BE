@@ -6,10 +6,13 @@ import {
 } from '@nestjs/common';
 import {
   ActivityType,
+  ConfirmationProofStatus,
   CommissionStatus,
+  TransactionConfirmationSource,
   TransactionStatus,
   UserRole,
 } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
@@ -18,6 +21,13 @@ import { CreateTransactionIntentDto } from './dto/create-transaction-intent.dto'
 import { UpdateTransactionIntentDto } from './dto/update-transaction-intent.dto';
 import { RewardService } from '../reward/reward.service';
 import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
+import {
+  ConfirmTransactionIntentDto,
+  GenerateConfirmationLinkDto,
+  RejectConfirmationProofDto,
+  ReviewConfirmationProofDto,
+  SubmitConfirmationProofDto,
+} from './dto/confirmation-flow.dto';
 
 type Actor = { userId: string; role: UserRole | string };
 
@@ -51,6 +61,7 @@ export class TransactionIntentService {
     private readonly activityLog: ActivityLogService,
     private readonly rewardService: RewardService,
     private readonly cloudinary: CloudinaryService,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(userId: string | undefined, dto: CreateTransactionIntentDto) {
@@ -315,59 +326,218 @@ export class TransactionIntentService {
       );
     }
 
-    let commissionAmount: number | undefined;
-    await this.prisma.$transaction(async (tx) => {
-      if (dto.status === TransactionStatus.CONFIRMED) {
-        const rate = intent.brand.commissionRate ?? 5;
-        commissionAmount = (dto.finalAmount! * rate) / 100;
-        await tx.transactionIntent.update({
-          where: { id },
-          data: {
-            status: dto.status,
-            finalAmount: dto.finalAmount,
-            commission: commissionAmount,
-            completedAt: new Date(),
-          },
-        });
-        await tx.commission.upsert({
-          where: { transactionId: id },
-          create: {
-            transactionId: id,
-            brandId: intent.brandId,
-            amount: commissionAmount,
-            rate,
-            status: CommissionStatus.PENDING,
-          },
-          update: {},
-        });
-        await tx.activityLog.create({
-          data: {
-            type: ActivityType.TRANSACTION_COMPLETED,
-            userId: intent.userId || undefined,
-            brandId: intent.brandId,
-            productId: intent.productId || undefined,
-            metadata: {
-              batchId: intent.batchId,
-              refCode: intent.refCode,
-              finalAmount: dto.finalAmount,
-              commission: commissionAmount,
-            },
-          },
-        });
-      } else {
-        await tx.transactionIntent.update({
-          where: { id },
-          data: { status: dto.status },
-        });
-      }
-    });
-
     if (dto.status === TransactionStatus.CONFIRMED) {
-      if (intent.userId && intent.items.some((item) => item.rewardEligible)) {
-        await this.rewardService.issuePurchaseCreditsForConfirmedIntent(id);
-      }
+      await this.confirmIntent(
+        id,
+        dto.finalAmount!,
+        TransactionConfirmationSource.LEGACY_STATUS_UPDATE,
+        actor,
+      );
+    } else {
+      await this.prisma.transactionIntent.update({
+        where: { id },
+        data: { status: dto.status },
+      });
     }
     return this.findOneWithDetails(id, actor);
+  }
+
+  async confirmDirect(
+    id: string,
+    dto: ConfirmTransactionIntentDto,
+    actor: Actor,
+  ) {
+    const source =
+      actor.role === UserRole.ADMIN
+        ? TransactionConfirmationSource.ADMIN_DIRECT
+        : TransactionConfirmationSource.BRAND_DIRECT;
+
+    return this.confirmIntent(id, dto.finalAmount, source, actor, dto.note);
+  }
+
+  async generateConfirmationLink(
+    id: string,
+    dto: GenerateConfirmationLinkDto,
+    actor: Actor,
+  ) {
+    const intent = await this.findOneWithDetails(id, actor);
+    if (intent.status === TransactionStatus.CONFIRMED) {
+      throw new BadRequestException('Purchase intent is already confirmed');
+    }
+
+    const token = await this.generateUniqueConfirmationToken();
+    const expiresAt = new Date(
+      Date.now() + (dto.expiresInHours ?? 72) * 60 * 60 * 1000,
+    );
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const confirmationLink = `${frontendUrl.replace(/\/$/, '')}/dashboard/purchases/${intent.refCode}/confirm?token=${token}`;
+
+    await this.prisma.transactionIntent.update({
+      where: { id },
+      data: {
+        confirmationLinkToken: token,
+        confirmationLinkFinalAmount: dto.finalAmount,
+        confirmationLinkGeneratedById: actor.userId,
+        confirmationLinkGeneratedAt: new Date(),
+        confirmationLinkExpiresAt: expiresAt,
+        confirmationNote: dto.note,
+      },
+    });
+
+    return {
+      transactionId: id,
+      refCode: intent.refCode,
+      confirmationLink,
+      finalAmount: dto.finalAmount,
+      expiresAt,
+    };
+  }
+
+  async submitConfirmationProof(
+    id: string,
+    dto: SubmitConfirmationProofDto,
+    userId: string,
+  ) {
+    const intent = await this.prisma.transactionIntent.findUnique({
+      where: { id },
+      include: this.intentInclude(),
+    });
+    if (!intent) {
+      throw new NotFoundException(`Transaction with ID ${id} not found`);
+    }
+    if (!intent.userId || intent.userId !== userId) {
+      throw new ForbiddenException(
+        'You can only submit proof for your own purchase intent',
+      );
+    }
+    if (intent.status === TransactionStatus.CONFIRMED) {
+      throw new BadRequestException('Purchase intent is already confirmed');
+    }
+
+    const token = this.extractConfirmationToken(dto.confirmationLink);
+    if (!token || token !== intent.confirmationLinkToken) {
+      throw new BadRequestException('Confirmation link is invalid');
+    }
+    if (
+      !intent.confirmationLinkExpiresAt ||
+      intent.confirmationLinkExpiresAt.getTime() < Date.now()
+    ) {
+      throw new BadRequestException('Confirmation link has expired');
+    }
+    if (!intent.confirmationLinkFinalAmount) {
+      throw new BadRequestException(
+        'Confirmation link does not include a final purchase amount',
+      );
+    }
+
+    const existingPending =
+      await this.prisma.transactionConfirmationProof.findFirst({
+        where: {
+          transactionId: id,
+          userId,
+          status: ConfirmationProofStatus.PENDING,
+        },
+      });
+    if (existingPending) return existingPending;
+
+    return this.prisma.transactionConfirmationProof.create({
+      data: {
+        transactionId: id,
+        userId,
+        confirmationLink: dto.confirmationLink,
+        finalAmount: intent.confirmationLinkFinalAmount,
+        note: dto.note,
+      },
+    });
+  }
+
+  async findConfirmationProofs(options?: {
+    status?: ConfirmationProofStatus;
+    skip?: number;
+    take?: number;
+  }) {
+    return this.prisma.transactionConfirmationProof.findMany({
+      where: { status: options?.status },
+      include: {
+        transaction: { include: this.intentInclude() },
+      },
+      skip: options?.skip,
+      take: options?.take,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async approveConfirmationProof(
+    proofId: string,
+    dto: ReviewConfirmationProofDto,
+    actor: Actor,
+  ) {
+    const proof = await this.prisma.transactionConfirmationProof.findUnique({
+      where: { id: proofId },
+    });
+    if (!proof) {
+      throw new NotFoundException(`Confirmation proof ${proofId} not found`);
+    }
+    if (proof.status !== ConfirmationProofStatus.PENDING) {
+      throw new BadRequestException(
+        'Confirmation proof has already been reviewed',
+      );
+    }
+
+    await this.confirmIntent(
+      proof.transactionId,
+      proof.finalAmount,
+      TransactionConfirmationSource.CUSTOMER_PROOF,
+      actor,
+      dto.note,
+    );
+
+    return this.prisma.transactionConfirmationProof.update({
+      where: { id: proofId },
+      data: {
+        status: ConfirmationProofStatus.APPROVED,
+        reviewedById: actor.userId,
+        reviewedAt: new Date(),
+        reviewNote: dto.note,
+      },
+      include: {
+        transaction: { include: this.intentInclude() },
+      },
+    });
+  }
+
+  async rejectConfirmationProof(
+    proofId: string,
+    dto: RejectConfirmationProofDto,
+    actor: Actor,
+  ) {
+    const proof = await this.prisma.transactionConfirmationProof.findUnique({
+      where: { id: proofId },
+    });
+    if (!proof) {
+      throw new NotFoundException(`Confirmation proof ${proofId} not found`);
+    }
+    if (proof.status !== ConfirmationProofStatus.PENDING) {
+      throw new BadRequestException(
+        'Confirmation proof has already been reviewed',
+      );
+    }
+
+    return this.prisma.transactionConfirmationProof.update({
+      where: { id: proofId },
+      data: {
+        status: ConfirmationProofStatus.REJECTED,
+        reviewedById: actor.userId,
+        reviewedAt: new Date(),
+        rejectionReason: dto.reason,
+      },
+      include: {
+        transaction: { include: this.intentInclude() },
+      },
+    });
   }
 
   async remove(id: string) {
@@ -412,6 +582,7 @@ export class TransactionIntentService {
           commissionRate: true,
         },
       },
+      confirmationProofs: { orderBy: { createdAt: 'desc' } },
     } as const;
   }
   private batchInclude() {
@@ -420,6 +591,103 @@ export class TransactionIntentService {
   private reference(prefix: string) {
     return `${prefix}-${randomBytes(4).toString('hex').toUpperCase()}`;
   }
+
+  private async confirmIntent(
+    id: string,
+    finalAmount: number,
+    source: TransactionConfirmationSource,
+    actor?: Actor,
+    note?: string,
+  ) {
+    const intent = await this.findOneWithDetails(id, actor);
+    if (intent.status === TransactionStatus.CONFIRMED) {
+      return intent;
+    }
+    if (
+      !(
+        [
+          TransactionStatus.PENDING,
+          TransactionStatus.CONTACTED,
+          TransactionStatus.NEGOTIATING,
+        ] as TransactionStatus[]
+      ).includes(intent.status)
+    ) {
+      throw new BadRequestException(
+        `Cannot confirm purchase intent from ${intent.status}`,
+      );
+    }
+
+    const rate = intent.brand.commissionRate ?? 5;
+    const commissionAmount = (finalAmount * rate) / 100;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.transactionIntent.update({
+        where: { id },
+        data: {
+          status: TransactionStatus.CONFIRMED,
+          finalAmount,
+          commission: commissionAmount,
+          completedAt: new Date(),
+          confirmationSource: source,
+          confirmedById: actor?.userId,
+          confirmationNote: note,
+        },
+      });
+      await tx.commission.upsert({
+        where: { transactionId: id },
+        create: {
+          transactionId: id,
+          brandId: intent.brandId,
+          amount: commissionAmount,
+          rate,
+          status: CommissionStatus.PENDING,
+        },
+        update: {},
+      });
+      await tx.activityLog.create({
+        data: {
+          type: ActivityType.TRANSACTION_COMPLETED,
+          userId: intent.userId || undefined,
+          brandId: intent.brandId,
+          productId: intent.productId || undefined,
+          metadata: {
+            batchId: intent.batchId,
+            refCode: intent.refCode,
+            finalAmount,
+            commission: commissionAmount,
+            confirmationSource: source,
+            confirmedById: actor?.userId,
+          },
+        },
+      });
+    });
+
+    if (intent.userId && intent.items.some((item) => item.rewardEligible)) {
+      await this.rewardService.issuePurchaseCreditsForConfirmedIntent(id);
+    }
+    return this.findOneWithDetails(id, actor);
+  }
+
+  private extractConfirmationToken(confirmationLink: string) {
+    try {
+      return new URL(confirmationLink).searchParams.get('token');
+    } catch {
+      const match = confirmationLink.match(/[?&]token=([^&]+)/);
+      return match?.[1] ? decodeURIComponent(match[1]) : undefined;
+    }
+  }
+
+  private async generateUniqueConfirmationToken() {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const token = randomBytes(24).toString('hex');
+      const existing = await this.prisma.transactionIntent.findFirst({
+        where: { confirmationLinkToken: token },
+        select: { id: true },
+      });
+      if (!existing) return token;
+    }
+    throw new BadRequestException('Could not generate confirmation link token');
+  }
+
   private async assertBrandAccess(brandId: string, actor?: Actor) {
     if (!actor || actor.role !== UserRole.BRAND_OWNER) return;
     const owned = await this.prisma.brand.count({

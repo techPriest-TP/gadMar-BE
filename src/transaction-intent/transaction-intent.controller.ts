@@ -19,7 +19,11 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { TransactionStatus, UserRole } from '@prisma/client';
+import {
+  ConfirmationProofStatus,
+  TransactionStatus,
+  UserRole,
+} from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { RequestUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
@@ -34,6 +38,13 @@ import {
 } from './dto/transaction-intent-response.dto';
 import { UpdateTransactionIntentDto } from './dto/update-transaction-intent.dto';
 import { TransactionIntentService } from './transaction-intent.service';
+import {
+  ConfirmTransactionIntentDto,
+  GenerateConfirmationLinkDto,
+  RejectConfirmationProofDto,
+  ReviewConfirmationProofDto,
+  SubmitConfirmationProofDto,
+} from './dto/confirmation-flow.dto';
 
 @ApiBearerAuth()
 @Controller('transaction-intents')
@@ -177,6 +188,92 @@ export class TransactionIntentController {
     return this.service.getStats();
   }
 
+  @Get('confirmation-proofs')
+  @Roles(UserRole.ADMIN)
+  @ApiTags('Super Admin Dashboard')
+  @ApiOperation({
+    summary: 'List customer-submitted purchase confirmation proofs',
+    description:
+      'Admin review queue for confirmation links submitted by customers from their dashboard.',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ConfirmationProofStatus,
+    description: 'Filter proof review queue by status.',
+  })
+  @ApiQuery({
+    name: 'skip',
+    required: false,
+    type: Number,
+    description: 'Number of records to skip for pagination.',
+  })
+  @ApiQuery({
+    name: 'take',
+    required: false,
+    type: Number,
+    description: 'Number of records to return for pagination.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Confirmation proofs with related purchase intent details.',
+  })
+  findConfirmationProofs(
+    @Query('status') status?: ConfirmationProofStatus,
+    @Query('skip') skip?: string,
+    @Query('take') take?: string,
+  ) {
+    return this.service.findConfirmationProofs({
+      status,
+      skip: skip ? Number(skip) : undefined,
+      take: take ? Number(take) : undefined,
+    });
+  }
+
+  @Post('confirmation-proofs/:proofId/approve')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiTags('Super Admin Dashboard')
+  @ApiOperation({
+    summary: 'Approve a customer confirmation proof',
+    description:
+      'Approves the submitted proof, confirms the purchase, creates the commission, and issues pending GadMar Credits.',
+  })
+  @ApiParam({ name: 'proofId', description: 'Confirmation proof ID.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Confirmation proof approved and purchase confirmed.',
+  })
+  approveConfirmationProof(
+    @Param('proofId') proofId: string,
+    @Body() dto: ReviewConfirmationProofDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.approveConfirmationProof(proofId, dto, user);
+  }
+
+  @Post('confirmation-proofs/:proofId/reject')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiTags('Super Admin Dashboard')
+  @ApiOperation({
+    summary: 'Reject a customer confirmation proof',
+    description:
+      'Rejects a submitted confirmation proof without confirming the purchase or issuing credits.',
+  })
+  @ApiParam({ name: 'proofId', description: 'Confirmation proof ID.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Confirmation proof rejected.',
+  })
+  rejectConfirmationProof(
+    @Param('proofId') proofId: string,
+    @Body() dto: RejectConfirmationProofDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.rejectConfirmationProof(proofId, dto, user);
+  }
+
   @Get('ref/:refCode')
   @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
   @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
@@ -205,6 +302,83 @@ export class TransactionIntentController {
   @ApiResponse({ status: 200, type: TransactionIntentWithDetailsDto })
   findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.service.findOneWithDetails(id, user);
+  }
+
+  @Post(':id/confirm')
+  @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @HttpCode(HttpStatus.OK)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
+  @ApiOperation({
+    summary: 'Confirm a WhatsApp purchase directly',
+    description:
+      'Brand owners can confirm purchases for their own brands. Admins can confirm any purchase. Confirmation creates a pending commission and pending customer credits when eligible.',
+  })
+  @ApiParam({ name: 'id', description: 'Purchase intent ID.' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Purchase confirmed with commission and credit records created.',
+    type: TransactionIntentWithDetailsDto,
+  })
+  confirmDirect(
+    @Param('id') id: string,
+    @Body() dto: ConfirmTransactionIntentDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.confirmDirect(id, dto, user);
+  }
+
+  @Post(':id/confirmation-link')
+  @Roles(UserRole.ADMIN, UserRole.BRAND_OWNER)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiTags('Brand Owner Dashboard', 'Super Admin Dashboard')
+  @ApiOperation({
+    summary: 'Generate a customer confirmation link',
+    description:
+      'Used when the brand sends a payment confirmation link to the customer. The customer can submit the link from their dashboard for admin review.',
+  })
+  @ApiParam({ name: 'id', description: 'Purchase intent ID.' })
+  @ApiResponse({
+    status: 201,
+    description: 'Customer confirmation link generated.',
+    schema: {
+      example: {
+        transactionId: 'transaction-intent-id',
+        refCode: 'GAD-1A2B3C4D',
+        confirmationLink:
+          'https://gadmar.com/dashboard/purchases/GAD-1A2B3C4D/confirm?token=abc123',
+        finalAmount: 250000,
+        expiresAt: '2026-09-08T10:00:00.000Z',
+      },
+    },
+  })
+  generateConfirmationLink(
+    @Param('id') id: string,
+    @Body() dto: GenerateConfirmationLinkDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.generateConfirmationLink(id, dto, user);
+  }
+
+  @Post(':id/proofs')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiTags('Customer Dashboard')
+  @ApiOperation({
+    summary: 'Submit a purchase confirmation link for admin review',
+    description:
+      'Customer submits the brand-generated confirmation link. Admin approval is required before the purchase becomes confirmed.',
+  })
+  @ApiParam({ name: 'id', description: 'Purchase intent ID.' })
+  @ApiResponse({
+    status: 201,
+    description: 'Confirmation proof submitted for admin review.',
+  })
+  submitConfirmationProof(
+    @Param('id') id: string,
+    @Body() dto: SubmitConfirmationProofDto,
+    @CurrentUser('userId') userId: string,
+  ) {
+    return this.service.submitConfirmationProof(id, dto, userId);
   }
 
   @Patch(':id')
