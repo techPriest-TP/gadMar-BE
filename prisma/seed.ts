@@ -1,6 +1,8 @@
 import {
   ActivityType,
   BrandStatus,
+  ConfirmationProofStatus,
+  CreditWithdrawalStatus,
   NigerianRegion,
   PrismaClient,
   ProductCondition,
@@ -18,6 +20,8 @@ async function main() {
   console.log('🌱 Starting database seed...');
 
   // Clean existing data
+  await prisma.creditWithdrawal.deleteMany();
+  await prisma.transactionConfirmationProof.deleteMany();
   await prisma.commission.deleteMany();
   await prisma.reward.deleteMany();
   await prisma.transactionIntentItem.deleteMany();
@@ -108,6 +112,7 @@ async function main() {
       warrantyPolicy: 'Manufacturer warranty applies where available.',
       returnsPolicy: 'Returns are subject to inspection and store policy.',
       commissionRate: 5.0,
+      canDirectlyConfirmPurchases: true,
       ownerId: brandOwner.id,
     },
   });
@@ -124,6 +129,7 @@ async function main() {
       email: 'support@samsung.com',
       isFeatured: true,
       commissionRate: 4.5,
+      canDirectlyConfirmPurchases: false,
       verificationStatus: BrandStatus.VERIFIED,
       region: NigerianRegion.SOUTH_WEST,
       state: 'Lagos',
@@ -143,6 +149,7 @@ async function main() {
       email: 'support@sony.com',
       isFeatured: false,
       commissionRate: 6.0,
+      canDirectlyConfirmPurchases: false,
       verificationStatus: BrandStatus.VERIFIED,
       region: NigerianRegion.SOUTH_WEST,
       state: 'Lagos',
@@ -317,6 +324,96 @@ async function main() {
   );
   console.log('✅ Created transaction intents:', transactions.length);
 
+  const pendingBatch = await prisma.purchaseBatch.create({
+    data: { batchCode: 'BATCH-SEED02', userId: user1.id },
+  });
+  const pendingProduct = productsWithImages.find(
+    (product) => product.slug === 'macbook-pro-16-m3',
+  )!;
+  const pendingMessage = `Hi Apple, I'd like to buy ${pendingProduct.name}. Reference: GAD-PENDING01`;
+  const pendingIntent = await prisma.transactionIntent.create({
+    data: {
+      batchId: pendingBatch.id,
+      userId: user1.id,
+      productId: pendingProduct.id,
+      brandId: apple.id,
+      status: TransactionStatus.PENDING,
+      refCode: 'GAD-PENDING01',
+      amount: pendingProduct.price,
+      whatsappMessage: pendingMessage,
+      whatsappUrl: `${apple.whatsappLink}?text=${encodeURIComponent(pendingMessage)}`,
+      items: {
+        create: [
+          {
+            productId: pendingProduct.id,
+            productName: pendingProduct.name,
+            productSlug: pendingProduct.slug,
+            productImage: pendingProduct.images[0]?.secureUrl,
+            unitPrice: pendingProduct.price,
+            quantity: 1,
+            rewardEligible: pendingProduct.rewardEligible,
+            brandId: apple.id,
+            brandName: apple.name,
+          },
+        ],
+      },
+    },
+  });
+
+  const proofBatch = await prisma.purchaseBatch.create({
+    data: { batchCode: 'BATCH-SEED03', userId: user1.id },
+  });
+  const proofProduct = productsWithImages.find(
+    (product) => product.slug === 'airpods-pro-2',
+  )!;
+  const proofToken = 'seed-confirmation-token';
+  const proofMessage = `Hi Apple, I'd like to buy ${proofProduct.name}. Reference: GAD-PROOF01`;
+  const proofIntent = await prisma.transactionIntent.create({
+    data: {
+      batchId: proofBatch.id,
+      userId: user1.id,
+      productId: proofProduct.id,
+      brandId: apple.id,
+      status: TransactionStatus.CONTACTED,
+      refCode: 'GAD-PROOF01',
+      amount: proofProduct.price,
+      confirmationLinkToken: proofToken,
+      confirmationLinkFinalAmount: proofProduct.price,
+      confirmationLinkGeneratedById: brandOwner.id,
+      confirmationLinkGeneratedAt: new Date(),
+      confirmationLinkExpiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+      confirmationNote: 'Seeded customer proof review scenario',
+      whatsappMessage: proofMessage,
+      whatsappUrl: `${apple.whatsappLink}?text=${encodeURIComponent(proofMessage)}`,
+      items: {
+        create: [
+          {
+            productId: proofProduct.id,
+            productName: proofProduct.name,
+            productSlug: proofProduct.slug,
+            productImage: proofProduct.images[0]?.secureUrl,
+            unitPrice: proofProduct.price,
+            quantity: 1,
+            rewardEligible: proofProduct.rewardEligible,
+            brandId: apple.id,
+            brandName: apple.name,
+          },
+        ],
+      },
+    },
+  });
+  await prisma.transactionConfirmationProof.create({
+    data: {
+      transactionId: proofIntent.id,
+      userId: user1.id,
+      confirmationLink: `http://localhost:3000/dashboard/purchases/${proofIntent.refCode}/confirm?token=${proofToken}`,
+      finalAmount: proofProduct.price,
+      status: ConfirmationProofStatus.PENDING,
+      note: 'Customer submitted the brand confirmation link after payment.',
+    },
+  });
+  console.log('✅ Created dashboard test purchase states');
+
   // Create activity logs
   const activities = await Promise.all([
     prisma.activityLog.create({
@@ -392,12 +489,15 @@ async function main() {
   // commission keeps customer credits pending.
   const rewardExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const customerRewardShare = 0.4;
+  const availableWithdrawalSeed = 10000;
+  const paidWithdrawalSeed = 7000;
   const rewards = await Promise.all([
     prisma.reward.create({
       data: {
         userId: user1.id,
         type: RewardType.BASE_PURCHASE_CREDIT,
-        amount: Math.round(commissions[0].amount * customerRewardShare * 100) / 100,
+        amount:
+          Math.round(commissions[0].amount * customerRewardShare * 100) / 100,
         status: RewardStatus.AVAILABLE,
         description: 'Base GadMar Credits from 40% of paid GadMar commission',
         transactionId: transactions[0].id,
@@ -410,7 +510,8 @@ async function main() {
       data: {
         userId: user1.id,
         type: RewardType.BASE_PURCHASE_CREDIT,
-        amount: Math.round(commissions[1].amount * customerRewardShare * 100) / 100,
+        amount:
+          Math.round(commissions[1].amount * customerRewardShare * 100) / 100,
         status: RewardStatus.PENDING,
         description:
           'Base GadMar Credits pending brand commission reconciliation',
@@ -430,8 +531,108 @@ async function main() {
         expiresAt: rewardExpiry,
       },
     }),
+    prisma.reward.create({
+      data: {
+        userId: user1.id,
+        type: RewardType.MANUAL_CREDIT,
+        amount: availableWithdrawalSeed,
+        status: RewardStatus.AVAILABLE,
+        description: 'Available manual credit for withdrawal testing',
+        availableAt: new Date(),
+        expiresAt: rewardExpiry,
+      },
+    }),
+    prisma.reward.create({
+      data: {
+        userId: user1.id,
+        type: RewardType.MANUAL_CREDIT,
+        amount: paidWithdrawalSeed,
+        status: RewardStatus.WITHDRAWN,
+        description: 'Paid withdrawal seed credit',
+        availableAt: new Date(),
+        claimedAt: new Date(),
+        withdrawnAt: new Date(),
+        expiresAt: rewardExpiry,
+      },
+    }),
   ]);
   console.log('✅ Created GadMar Credits:', rewards.length);
+
+  const pendingWithdrawal = await prisma.creditWithdrawal.create({
+    data: {
+      userId: user1.id,
+      amount: 5000,
+      status: CreditWithdrawalStatus.PENDING,
+      bankName: 'GTBank',
+      accountNumber: '0123456789',
+      accountName: 'John Doe',
+      note: 'Seeded pending withdrawal request',
+    },
+  });
+  await prisma.reward.update({
+    where: { id: rewards[3].id },
+    data: {
+      amount: 5000,
+      status: RewardStatus.WITHDRAWAL_REQUESTED,
+      withdrawalId: pendingWithdrawal.id,
+    },
+  });
+  await prisma.reward.create({
+    data: {
+      userId: user1.id,
+      type: RewardType.MANUAL_CREDIT,
+      amount: 5000,
+      status: RewardStatus.AVAILABLE,
+      description: 'Remainder from seeded withdrawal reservation',
+      availableAt: new Date(),
+      expiresAt: rewardExpiry,
+    },
+  });
+
+  const approvedWithdrawal = await prisma.creditWithdrawal.create({
+    data: {
+      userId: user2.id,
+      amount: 5000,
+      status: CreditWithdrawalStatus.APPROVED,
+      bankName: 'Access Bank',
+      accountNumber: '0987654321',
+      accountName: 'Jane Smith',
+      note: 'Seeded approved withdrawal request',
+      reviewedById: admin.id,
+      reviewedAt: new Date(),
+      reviewNote: 'Approved for payout testing',
+    },
+  });
+  await prisma.reward.update({
+    where: { id: rewards[2].id },
+    data: {
+      status: RewardStatus.WITHDRAWAL_REQUESTED,
+      withdrawalId: approvedWithdrawal.id,
+    },
+  });
+
+  const paidWithdrawal = await prisma.creditWithdrawal.create({
+    data: {
+      userId: user1.id,
+      amount: paidWithdrawalSeed,
+      status: CreditWithdrawalStatus.PAID,
+      bankName: 'Zenith Bank',
+      accountNumber: '1111222233',
+      accountName: 'John Doe',
+      note: 'Seeded paid withdrawal request',
+      reviewedById: admin.id,
+      reviewedAt: new Date(),
+      reviewNote: 'Paid during seed setup',
+      paidById: admin.id,
+      paidAt: new Date(),
+      paymentReference: 'SEED-PAID-001',
+    },
+  });
+  await prisma.reward.update({
+    where: { id: rewards[4].id },
+    data: { withdrawalId: paidWithdrawal.id },
+  });
+  console.log('✅ Created withdrawal scenarios: pending, approved, paid');
 
   console.log('\n🎉 Database seed completed successfully!');
   console.log('\nTest Accounts:');

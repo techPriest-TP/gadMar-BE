@@ -12,6 +12,11 @@ import type { RequestUser } from '../common/decorators/user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { DashboardService } from './dashboard.service';
+import {
+  AdminDashboardResponseDto,
+  BrandOwnerDashboardResponseDto,
+  CustomerDashboardResponseDto,
+} from './dto/dashboard-response.dto';
 
 @ApiBearerAuth()
 @Controller()
@@ -27,7 +32,11 @@ export class DashboardController {
     description:
       'Aggregates purchase tracking, credit balances, withdrawal states, and recent customer activity for the dashboard overview.',
   })
-  @ApiResponse({ status: 200, description: 'Customer dashboard summary.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer dashboard summary.',
+    type: CustomerDashboardResponseDto,
+  })
   getCustomerDashboard(@CurrentUser('userId') userId: string) {
     return this.dashboardService.getCustomerDashboard(userId);
   }
@@ -40,7 +49,11 @@ export class DashboardController {
     description:
       'Aggregates owned brands, products, purchase leads, commission state, direct-confirmation trust state, and recent activity.',
   })
-  @ApiResponse({ status: 200, description: 'Brand owner dashboard summary.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Brand owner dashboard summary.',
+    type: BrandOwnerDashboardResponseDto,
+  })
   getBrandOwnerDashboard(@CurrentUser('userId') userId: string) {
     return this.dashboardService.getBrandOwnerDashboard(userId);
   }
@@ -53,7 +66,11 @@ export class DashboardController {
     description:
       'Aggregates marketplace totals, pending review queues, commission reconciliation, credit liability, withdrawals, and recent platform activity.',
   })
-  @ApiResponse({ status: 200, description: 'Super admin dashboard summary.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Super admin dashboard summary.',
+    type: AdminDashboardResponseDto,
+  })
   getAdminDashboard(@CurrentUser() user: RequestUser) {
     return this.dashboardService.getAdminDashboard(user.userId);
   }
