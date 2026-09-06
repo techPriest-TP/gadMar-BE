@@ -16,6 +16,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { validateEnvironment } from './config/environment';
 import { MediaModule } from './media/media.module';
+import { CreditWithdrawalModule } from './credit-withdrawal/credit-withdrawal.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { MediaModule } from './media/media.module';
     AnalyticsModule,
     WhatsAppModule,
     CommissionModule,
+    CreditWithdrawalModule,
   ],
 })
 export class AppModule {}

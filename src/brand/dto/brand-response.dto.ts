@@ -17,13 +17,19 @@ export class BrandResponseDto {
   @ApiProperty({ enum: BrandStatus }) verificationStatus: BrandStatus;
   @ApiProperty({ required: false }) warrantyPolicy?: string;
   @ApiProperty({ required: false }) returnsPolicy?: string;
-  @ApiProperty({ enum: NigerianRegion, required: false }) region?: NigerianRegion;
+  @ApiProperty({ enum: NigerianRegion, required: false })
+  region?: NigerianRegion;
   @ApiProperty({ required: false }) state?: string;
   @ApiProperty({ required: false }) lga?: string;
   @ApiProperty({ type: [String] }) deliveryStates: string[];
   @ApiProperty({ type: [String] }) pickupLocations: string[];
   @ApiProperty({ type: [String] }) inspectionLocations: string[];
   @ApiProperty() nationwideDelivery: boolean;
+  @ApiProperty({
+    description:
+      'Whether this brand is trusted to confirm WhatsApp purchases directly without customer proof review.',
+  })
+  canDirectlyConfirmPurchases: boolean;
   @ApiProperty() isFeatured: boolean;
   @ApiProperty({ required: false }) featuredUntil?: Date;
   @ApiProperty() createdAt: Date;
@@ -40,5 +46,6 @@ export class BrandWithStatsDto extends BrandResponseDto {
 
 export class BrandStorefrontDto {
   @ApiProperty({ type: BrandResponseDto }) brand: BrandResponseDto;
-  @ApiProperty({ type: () => [ProductResponseDto] }) products: ProductResponseDto[];
+  @ApiProperty({ type: () => [ProductResponseDto] })
+  products: ProductResponseDto[];
 }

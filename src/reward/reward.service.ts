@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRewardDto } from './dto/create-reward.dto';
@@ -135,9 +139,7 @@ export class RewardService {
     }
 
     if (reward.status !== RewardStatus.AVAILABLE) {
-      throw new BadRequestException(
-        'Only available credits can be withdrawn',
-      );
+      throw new BadRequestException('Only available credits can be withdrawn');
     }
 
     if (reward.expiresAt && reward.expiresAt < new Date()) {
@@ -353,7 +355,9 @@ export class RewardService {
     const eligibleCommissionAmount =
       (eligibleFinalAmount * commissionRate) / 100;
     const customerRewardShare = this.customerRewardShare();
-    const baseCredits = this.money(eligibleCommissionAmount * customerRewardShare);
+    const baseCredits = this.money(
+      eligibleCommissionAmount * customerRewardShare,
+    );
     const commissionId = intent.commissionRecord?.id;
     const initialStatus =
       intent.commissionRecord?.status === 'PAID'
@@ -442,9 +446,7 @@ export class RewardService {
     return issued;
   }
 
-  async unlockCreditsForPaidCommission(
-    commissionId: string,
-  ): Promise<number> {
+  async unlockCreditsForPaidCommission(commissionId: string): Promise<number> {
     const result = await this.prisma.reward.updateMany({
       where: {
         commissionId,
@@ -466,6 +468,7 @@ export class RewardService {
       lifetimeCredits: stats.totalAmount,
       withdrawableCredits: stats.availableAmount,
       pendingCredits: stats.pendingAmount,
+      withdrawalRequestedCredits: stats.withdrawalRequestedAmount,
     };
   }
 
@@ -480,6 +483,7 @@ export class RewardService {
       pendingRewards,
       availableRewards,
       withdrawnRewards,
+      withdrawalRequestedRewards,
       claimedRewards,
       expiredRewards,
       cancelledRewards,
@@ -487,6 +491,7 @@ export class RewardService {
       pendingAmount,
       availableAmount,
       withdrawnAmount,
+      withdrawalRequestedAmount,
       claimedAmount,
       expiredAmount,
       cancelledAmount,
@@ -500,6 +505,9 @@ export class RewardService {
       }),
       this.prisma.reward.count({
         where: { ...where, status: RewardStatus.WITHDRAWN },
+      }),
+      this.prisma.reward.count({
+        where: { ...where, status: RewardStatus.WITHDRAWAL_REQUESTED },
       }),
       this.prisma.reward.count({
         where: { ...where, status: RewardStatus.CLAIMED },
@@ -521,6 +529,10 @@ export class RewardService {
       }),
       this.prisma.reward.aggregate({
         where: { ...where, status: RewardStatus.WITHDRAWN },
+        _sum: { amount: true },
+      }),
+      this.prisma.reward.aggregate({
+        where: { ...where, status: RewardStatus.WITHDRAWAL_REQUESTED },
         _sum: { amount: true },
       }),
       this.prisma.reward.aggregate({
@@ -546,6 +558,8 @@ export class RewardService {
       availableAmount: availableAmount._sum.amount || 0,
       withdrawnRewards,
       withdrawnAmount: withdrawnAmount._sum.amount || 0,
+      withdrawalRequestedRewards,
+      withdrawalRequestedAmount: withdrawalRequestedAmount._sum.amount || 0,
       claimedRewards,
       claimedAmount: claimedAmount._sum.amount || 0,
       expiredRewards,
@@ -583,6 +597,7 @@ export class RewardService {
       description: reward.description,
       transactionId: reward.transactionId,
       commissionId: reward.commissionId,
+      withdrawalId: reward.withdrawalId,
       availableAt: reward.availableAt,
       claimedAt: reward.claimedAt,
       withdrawnAt: reward.withdrawnAt,

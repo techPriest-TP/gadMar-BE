@@ -26,7 +26,7 @@ export class RewardResponseDto {
     enum: RewardStatus,
     example: 'PENDING',
     description:
-      'Credit lifecycle: PENDING waits for brand commission payment, AVAILABLE can be withdrawn, WITHDRAWN has been paid out, EXPIRED is no longer valid, CANCELLED was reversed.',
+      'Credit lifecycle: PENDING waits for brand commission payment, AVAILABLE can be withdrawn, WITHDRAWAL_REQUESTED is reserved for an admin-reviewed withdrawal, WITHDRAWN has been paid out, EXPIRED is no longer valid, CANCELLED was reversed.',
   })
   status: RewardStatus;
 
@@ -51,6 +51,14 @@ export class RewardResponseDto {
       'Commission record that unlocks this credit when marked as paid.',
   })
   commissionId?: string;
+
+  @ApiProperty({
+    required: false,
+    example: 'credit-withdrawal-id',
+    description:
+      'Withdrawal request currently reserving or paid from this credit entry.',
+  })
+  withdrawalId?: string;
 
   @ApiProperty({
     required: false,
@@ -91,10 +99,16 @@ export class RewardStatsDto {
   @ApiProperty({ example: 12, description: 'Total number of credit entries.' })
   totalRewards: number;
 
-  @ApiProperty({ example: 150000, description: 'Total credit value across all statuses.' })
+  @ApiProperty({
+    example: 150000,
+    description: 'Total credit value across all statuses.',
+  })
   totalAmount: number;
 
-  @ApiProperty({ example: 5, description: 'Credits waiting for commission reconciliation.' })
+  @ApiProperty({
+    example: 5,
+    description: 'Credits waiting for commission reconciliation.',
+  })
   pendingRewards: number;
 
   @ApiProperty({ example: 60000, description: 'Pending credit value.' })
@@ -106,10 +120,28 @@ export class RewardStatsDto {
   @ApiProperty({ example: 70000, description: 'Withdrawable credit value.' })
   availableAmount: number;
 
-  @ApiProperty({ example: 2, description: 'Credits already paid out to customers.' })
+  @ApiProperty({
+    example: 1,
+    description: 'Credits reserved in pending or approved withdrawal requests.',
+  })
+  withdrawalRequestedRewards: number;
+
+  @ApiProperty({
+    example: 5000,
+    description: 'Credit value reserved in withdrawal requests.',
+  })
+  withdrawalRequestedAmount: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'Credits already paid out to customers.',
+  })
   withdrawnRewards: number;
 
-  @ApiProperty({ example: 18000, description: 'Credit value already paid out.' })
+  @ApiProperty({
+    example: 18000,
+    description: 'Credit value already paid out.',
+  })
   withdrawnAmount: number;
 
   @ApiProperty({ example: 0, description: 'Legacy claimed reward count.' })
@@ -151,6 +183,13 @@ export class CreditSummaryDto extends RewardStatsDto {
       'Credits earned but still waiting for brand commission reconciliation.',
   })
   pendingCredits: number;
+
+  @ApiProperty({
+    example: 5000,
+    description:
+      'Credits reserved for withdrawal and waiting for admin payout flow.',
+  })
+  withdrawalRequestedCredits: number;
 }
 
 export class UserStreakDto {

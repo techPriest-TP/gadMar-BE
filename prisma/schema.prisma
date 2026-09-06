@@ -65,6 +65,7 @@ model User {
   updatedAt                DateTime                  @updatedAt
   authTokens               AuthToken[]
   authProviders            AuthProvider[]
+  creditWithdrawals        CreditWithdrawal[]
   notifications            Notification[]
   notificationReadReceipts NotificationReadReceipt[]
   userDeviceTokens         UserDeviceToken[]
@@ -75,38 +76,39 @@ model User {
 }
 
 model Brand {
-  id                  String              @id @default(auto()) @map("_id") @db.ObjectId
-  name                String
-  slug                String              @unique
-  logo                String?
-  banner              String?
-  about               String?
-  phone               String
-  whatsappLink        String
-  email               String?
-  websiteUrl          String?
-  socialLinks         String[]            @default([])
-  verificationStatus  BrandStatus         @default(PENDING_VERIFICATION)
-  verificationNotes   String?
-  warrantyPolicy      String?
-  returnsPolicy       String?
-  region              NigerianRegion?
-  state               String?
-  lga                 String?
-  deliveryStates      String[]            @default([])
-  pickupLocations     String[]            @default([])
-  inspectionLocations String[]            @default([])
-  nationwideDelivery  Boolean             @default(false)
-  isFeatured          Boolean             @default(false)
-  featuredUntil       DateTime?
-  products            Product[]
-  transactions        TransactionIntent[]
-  commissions         Commission[]
-  ownerId             String?             @db.ObjectId
-  owner               User?               @relation("brandOwner", fields: [ownerId], references: [id])
-  commissionRate      Float               @default(5.0)
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  id                          String              @id @default(auto()) @map("_id") @db.ObjectId
+  name                        String
+  slug                        String              @unique
+  logo                        String?
+  banner                      String?
+  about                       String?
+  phone                       String
+  whatsappLink                String
+  email                       String?
+  websiteUrl                  String?
+  socialLinks                 String[]            @default([])
+  verificationStatus          BrandStatus         @default(PENDING_VERIFICATION)
+  verificationNotes           String?
+  warrantyPolicy              String?
+  returnsPolicy               String?
+  region                      NigerianRegion?
+  state                       String?
+  lga                         String?
+  deliveryStates              String[]            @default([])
+  pickupLocations             String[]            @default([])
+  inspectionLocations         String[]            @default([])
+  nationwideDelivery          Boolean             @default(false)
+  canDirectlyConfirmPurchases Boolean             @default(false)
+  isFeatured                  Boolean             @default(false)
+  featuredUntil               DateTime?
+  products                    Product[]
+  transactions                TransactionIntent[]
+  commissions                 Commission[]
+  ownerId                     String?             @db.ObjectId
+  owner                       User?               @relation("brandOwner", fields: [ownerId], references: [id])
+  commissionRate              Float               @default(5.0)
+  createdAt                   DateTime            @default(now())
+  updatedAt                   DateTime            @updatedAt
 
   @@index([verificationStatus, isFeatured])
   @@index([region, state])
@@ -264,24 +266,27 @@ model TransactionIntentItem {
 }
 
 model Reward {
-  id            String       @id @default(auto()) @map("_id") @db.ObjectId
-  userId        String       @db.ObjectId
-  user          User         @relation("userRewards", fields: [userId], references: [id])
-  type          RewardType   @default(BASE_PURCHASE_CREDIT)
+  id            String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String            @db.ObjectId
+  user          User              @relation("userRewards", fields: [userId], references: [id])
+  type          RewardType        @default(BASE_PURCHASE_CREDIT)
   amount        Float
-  status        RewardStatus @default(PENDING)
+  status        RewardStatus      @default(PENDING)
   description   String?
-  transactionId String?      @db.ObjectId
-  commissionId  String?      @db.ObjectId
+  transactionId String?           @db.ObjectId
+  commissionId  String?           @db.ObjectId
+  withdrawalId  String?           @db.ObjectId
+  withdrawal    CreditWithdrawal? @relation(fields: [withdrawalId], references: [id])
   availableAt   DateTime?
   claimedAt     DateTime?
   withdrawnAt   DateTime?
   expiresAt     DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@index([transactionId])
   @@index([commissionId])
+  @@index([withdrawalId])
   @@map("rewards")
 }
 
@@ -338,6 +343,32 @@ model TransactionConfirmationProof {
   @@index([transactionId, status])
   @@index([userId])
   @@map("transaction_confirmation_proofs")
+}
+
+model CreditWithdrawal {
+  id               String                 @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String                 @db.ObjectId
+  user             User                   @relation(fields: [userId], references: [id])
+  amount           Float
+  status           CreditWithdrawalStatus @default(PENDING)
+  bankName         String
+  accountNumber    String
+  accountName      String
+  note             String?
+  reviewedById     String?                @db.ObjectId
+  reviewedAt       DateTime?
+  reviewNote       String?
+  rejectionReason  String?
+  paidById         String?                @db.ObjectId
+  paidAt           DateTime?
+  paymentReference String?
+  rewards          Reward[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@map("credit_withdrawals")
 }
 
 model UserDeviceToken {
@@ -455,9 +486,18 @@ enum RewardType {
 enum RewardStatus {
   PENDING
   AVAILABLE
+  WITHDRAWAL_REQUESTED
   WITHDRAWN
   CLAIMED
   EXPIRED
+  CANCELLED
+}
+
+enum CreditWithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
   CANCELLED
 }
 

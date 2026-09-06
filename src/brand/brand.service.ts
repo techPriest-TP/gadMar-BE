@@ -13,7 +13,11 @@ import {
   BrandWithStatsDto,
 } from './dto/brand-response.dto';
 import { CreateBrandDto } from './dto/create-brand.dto';
-import { ReviewBrandDto, UpdateBrandDto } from './dto/update-brand.dto';
+import {
+  ReviewBrandDto,
+  UpdateBrandDto,
+  UpdateBrandPurchaseConfirmationTrustDto,
+} from './dto/update-brand.dto';
 
 type Actor = { userId: string; role: UserRole };
 
@@ -161,6 +165,22 @@ export class BrandService {
     );
   }
 
+  async updatePurchaseConfirmationTrust(
+    id: string,
+    dto: UpdateBrandPurchaseConfirmationTrustDto,
+  ) {
+    await this.requireBrand(id);
+    return this.map(
+      await this.prisma.brand.update({
+        where: { id },
+        data: {
+          canDirectlyConfirmPurchases: dto.canDirectlyConfirmPurchases,
+          verificationNotes: dto.note,
+        },
+      }),
+    );
+  }
+
   async remove(id: string) {
     await this.requireBrand(id);
     await this.prisma.brand.delete({ where: { id } });
@@ -269,6 +289,7 @@ export class BrandService {
       pickupLocations: brand.pickupLocations,
       inspectionLocations: brand.inspectionLocations,
       nationwideDelivery: brand.nationwideDelivery,
+      canDirectlyConfirmPurchases: brand.canDirectlyConfirmPurchases,
       isFeatured: brand.isFeatured,
       featuredUntil: brand.featuredUntil,
       createdAt: brand.createdAt,

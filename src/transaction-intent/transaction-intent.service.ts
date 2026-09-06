@@ -347,6 +347,18 @@ export class TransactionIntentService {
     dto: ConfirmTransactionIntentDto,
     actor: Actor,
   ) {
+    const intent = await this.findOneWithDetails(id, actor);
+    if (
+      actor.role === UserRole.BRAND_OWNER &&
+      !intent.brand.canDirectlyConfirmPurchases
+    ) {
+      throw new ForbiddenException({
+        message:
+          'This brand must use customer confirmation links until direct confirmation is enabled by admin.',
+        code: 'DIRECT_CONFIRMATION_NOT_ENABLED',
+      });
+    }
+
     const source =
       actor.role === UserRole.ADMIN
         ? TransactionConfirmationSource.ADMIN_DIRECT
@@ -580,6 +592,7 @@ export class TransactionIntentService {
           name: true,
           whatsappLink: true,
           commissionRate: true,
+          canDirectlyConfirmPurchases: true,
         },
       },
       confirmationProofs: { orderBy: { createdAt: 'desc' } },
