@@ -17,6 +17,7 @@ import { HealthModule } from './health/health.module';
 import { validateEnvironment } from './config/environment';
 import { MediaModule } from './media/media.module';
 import { CreditWithdrawalModule } from './credit-withdrawal/credit-withdrawal.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { CreditWithdrawalModule } from './credit-withdrawal/credit-withdrawal.mo
     WhatsAppModule,
     CommissionModule,
     CreditWithdrawalModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}
