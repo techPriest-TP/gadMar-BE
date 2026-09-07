@@ -11,7 +11,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: APP_ENV
-        value: production
+        value: development
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET
@@ -20,17 +20,13 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         sync: false
-      - key: EMAIL_PROVIDER
-        value: postmark
-      - key: POSTMARK_URL
+      - key: BACKEND_URL
         sync: false
-      - key: POSTMARK_TOKEN
+      - key: CLOUD_NAME
         sync: false
-      - key: POSTMARK_FROM_EMAIL
+      - key: CLOUD_KEY
         sync: false
-      - key: RESEND_API_URL
-        value: https://api.resend.com
-      - key: RESEND_API_KEY
+      - key: CLOUD_SECRET
         sync: false
-      - key: RESEND_FROM_EMAIL
-        sync: false
+      - key: CLOUDINARY_UPLOAD_PRESET
+        value: gadmar_product_images
