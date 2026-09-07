@@ -3,7 +3,7 @@ services:
     name: gadmar-api
     runtime: node
     plan: free
-    buildCommand: yarn install && yarn build
+    buildCommand: yarn install --production=false && yarn build
     startCommand: yarn start:prod
     healthCheckPath: /api/v1/health
     autoDeploy: true
