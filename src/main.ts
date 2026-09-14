@@ -20,10 +20,28 @@ async function bootstrap() {
   app.enableShutdownHooks();
   app.use(helmet());
   app.use(compression());
+
+  const corsAllowList = (
+    configService.get<string>('ALLOW_LIST') ||
+    configService.get<string>('CORS_ORIGIN') ||
+    configService.getOrThrow<string>('FRONTEND_URL')
+  )
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin:
-      configService.get<string>('CORS_ORIGIN') ||
-      configService.getOrThrow<string>('FRONTEND_URL'),
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!origin || corsAllowList.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    },
     credentials: true,
   });
   app.useGlobalPipes(
@@ -41,12 +59,30 @@ async function bootstrap() {
     .setDescription('API for the GadMar multi-brand gadget marketplace')
     .setVersion('1.0.0')
     .addBearerAuth()
-    .addTag('Authentication', 'Account, login, password, OTP, and OAuth endpoints')
-    .addTag('Public Website', 'Guest-facing browsing, storefront, WhatsApp, and purchase-intent endpoints')
-    .addTag('Customer Dashboard', 'Customer profile, purchase tracking, credits, and activity endpoints')
-    .addTag('Brand Owner Dashboard', 'Brand-owned stores, products, purchase intents, commissions, and analytics endpoints')
-    .addTag('Super Admin Dashboard', 'Platform administration, verification, moderation, reconciliation, and reporting endpoints')
-    .addTag('Media Uploads', 'Direct image upload authorization and Cloudinary webhook endpoints')
+    .addTag(
+      'Authentication',
+      'Account, login, password, OTP, and OAuth endpoints',
+    )
+    .addTag(
+      'Public Website',
+      'Guest-facing browsing, storefront, WhatsApp, and purchase-intent endpoints',
+    )
+    .addTag(
+      'Customer Dashboard',
+      'Customer profile, purchase tracking, credits, and activity endpoints',
+    )
+    .addTag(
+      'Brand Owner Dashboard',
+      'Brand-owned stores, products, purchase intents, commissions, and analytics endpoints',
+    )
+    .addTag(
+      'Super Admin Dashboard',
+      'Platform administration, verification, moderation, reconciliation, and reporting endpoints',
+    )
+    .addTag(
+      'Media Uploads',
+      'Direct image upload authorization and Cloudinary webhook endpoints',
+    )
     .addTag('System', 'Health and infrastructure endpoints')
     .build();
 
