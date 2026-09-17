@@ -24,8 +24,10 @@ import type { CookieOptions, Request, Response } from 'express';
 import { GoogleAuthGuard } from 'src/common/guards/google-auth.guard';
 import type { User } from '@prisma/client';
 // import { getClientUrl } from 'src/utils/helpers';
+import { Public } from '../common/decorators/public.decorator';
 import type { RequestUser } from '../common/decorators/user.decorator';
 import { CurrentUser } from '../common/decorators/user.decorator';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { AuthService } from './auth.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
@@ -183,7 +185,8 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(AuthGuard('jwt'))
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout current user' })
   @ApiResponse({
@@ -196,11 +199,15 @@ export class AuthController {
     },
   })
   async logout(
-    @CurrentUser() user: RequestUser,
+    @Req() request: Request & { user?: RequestUser | null },
     @Res({ passthrough: true }) response: Response,
   ) {
     this.clearAuthCookies(response);
-    return this.authService.logout(user.id);
+    if (!request.user?.id) {
+      return { message: 'Logged out successfully' };
+    }
+
+    return this.authService.logout(request.user.id);
   }
 
   @Post('refresh-token')
