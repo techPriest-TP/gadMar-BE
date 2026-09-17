@@ -1,9 +1,10 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserRole } from '@prisma/client';
+import type { Request } from 'express';
 
 export interface JwtPayload {
   userId: string;
@@ -17,8 +18,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {
+    // passport-jwt does not expose enough type information for this constructor.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: (request: Request) => JwtStrategy.fromRequest(request),
       ignoreExpiration: false,
       secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
     });
@@ -54,5 +57,33 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       phone: user.phone,
       role: user.role,
     };
+  }
+
+  private static fromRequest(request: Request) {
+    return (
+      JwtStrategy.fromAuthorizationHeader(request) ??
+      JwtStrategy.fromAccessTokenCookie(request)
+    );
+  }
+
+  private static fromAuthorizationHeader(request: Request) {
+    const authorization = request.headers.authorization;
+    if (!authorization?.toLowerCase().startsWith('bearer ')) return null;
+    return authorization.slice('bearer '.length).trim();
+  }
+
+  private static fromAccessTokenCookie(request: Request) {
+    const cookieHeader = request.headers.cookie;
+    if (!cookieHeader) return null;
+
+    return (
+      cookieHeader
+        .split(';')
+        .map((cookie) => cookie.trim())
+        .find((cookie) => cookie.startsWith('accessToken='))
+        ?.split('=')
+        .slice(1)
+        .join('=') ?? null
+    );
   }
 }

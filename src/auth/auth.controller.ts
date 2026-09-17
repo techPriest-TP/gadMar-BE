@@ -9,6 +9,7 @@ import {
   // Request,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import {
   ApiBearerAuth,
@@ -18,8 +19,10 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import type { CookieOptions, Request, Response } from 'express';
 
 import { GoogleAuthGuard } from 'src/common/guards/google-auth.guard';
+import type { User } from '@prisma/client';
 // import { getClientUrl } from 'src/utils/helpers';
 import type { RequestUser } from '../common/decorators/user.decorator';
 import { CurrentUser } from '../common/decorators/user.decorator';
@@ -35,14 +38,18 @@ import { OtpService } from './otp.service';
 
 export enum Platform {
   MOBILE = 'mobile',
-  WEB = 'dashboard',
+  WEB = 'web',
 }
+
+type AuthenticatedRequest = Request & { user: User };
+
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly otpService: OtpService,
+    private readonly configService: ConfigService,
     // private readonly service: NotificationService,
   ) {}
 
@@ -102,8 +109,28 @@ export class AuthController {
     },
   })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  async login(@Req() req, @Query('platform') platform: Platform) {
-    return this.authService.login(req.user, platform);
+  async login(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+    @Query('platform') platform: Platform = Platform.WEB,
+  ) {
+    const session = await this.authService.createLoginSession(req.user);
+
+    if (platform === Platform.MOBILE) {
+      return {
+        message: 'Login successful',
+        user: session.user,
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+      };
+    }
+
+    this.setAuthCookies(response, session);
+
+    return {
+      message: 'Login successful',
+      user: session.user,
+    };
   }
 
   @Get('profile')
@@ -125,7 +152,7 @@ export class AuthController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getProfile(@CurrentUser() user: RequestUser) {
+  getProfile(@CurrentUser() user: RequestUser) {
     return {
       message: 'Profile retrieved successfully',
       user,
@@ -168,7 +195,11 @@ export class AuthController {
       },
     },
   })
-  async logout(@CurrentUser() user: RequestUser) {
+  async logout(
+    @CurrentUser() user: RequestUser,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    this.clearAuthCookies(response);
     return this.authService.logout(user.id);
   }
 
@@ -197,12 +228,26 @@ export class AuthController {
       },
     },
   })
-  async refreshTokens(@Body() payload: { refreshToken: string }) {
-    const tokens = await this.authService.refreshTokens(payload.refreshToken);
+  async refreshTokens(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+    @Body() payload: { refreshToken?: string },
+    @Query('platform') platform: Platform = Platform.WEB,
+  ) {
+    const refreshToken =
+      payload.refreshToken ?? this.getCookie(request, 'refreshToken');
+    const tokens = await this.authService.refreshTokens(refreshToken ?? '');
+
+    if (platform !== Platform.MOBILE) {
+      this.setAuthCookies(response, tokens);
+      return {
+        message: 'Tokens refreshed successfully',
+      };
+    }
+
     return {
       ...tokens,
       message: 'Tokens refreshed successfully',
-      success: true,
     };
   }
 
@@ -350,13 +395,54 @@ export class AuthController {
       },
     },
   })
-  async googleCallback(@Req() req, @Res() res) {
-    const token = await this.authService.login(req.user);
+  async googleCallback(@Req() req: AuthenticatedRequest, @Res() res: Response) {
+    const session = await this.authService.createLoginSession(req.user);
 
     const state = req.query.state
       ? decodeURIComponent(req.query.state as string)
       : process.env.FRONTEND_URL;
 
-    res.redirect(`${state}?token=${token.data.accessToken}`);
+    res.redirect(`${state}?token=${session.accessToken}`);
+  }
+
+  private setAuthCookies(
+    response: Response,
+    tokens: { accessToken: string; refreshToken: string },
+  ) {
+    response.cookie('accessToken', tokens.accessToken, {
+      ...this.authCookieOptions(),
+      maxAge: 15 * 60 * 1000,
+    });
+    response.cookie('refreshToken', tokens.refreshToken, {
+      ...this.authCookieOptions(),
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+  }
+
+  private clearAuthCookies(response: Response) {
+    response.clearCookie('accessToken', this.authCookieOptions());
+    response.clearCookie('refreshToken', this.authCookieOptions());
+  }
+
+  private authCookieOptions(): CookieOptions {
+    return {
+      httpOnly: true,
+      secure: this.configService.get<string>('APP_ENV') === 'production',
+      sameSite: 'lax',
+      path: '/',
+    };
+  }
+
+  private getCookie(request: Request, name: string) {
+    const cookieHeader = request.headers.cookie;
+    if (!cookieHeader) return undefined;
+
+    return cookieHeader
+      .split(';')
+      .map((cookie) => cookie.trim())
+      .find((cookie) => cookie.startsWith(`${name}=`))
+      ?.split('=')
+      .slice(1)
+      .join('=');
   }
 }

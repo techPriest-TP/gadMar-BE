@@ -9,7 +9,6 @@ import { JwtService } from '@nestjs/jwt';
 import { User, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { Platform } from './auth.controller';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RegisterDto } from './dto/register.dto';
 import { OtpService } from './otp.service';
@@ -56,16 +55,11 @@ export class AuthService {
     return user;
   }
 
-  async login(user: User, platform?: Platform) {
-    if (platform === Platform.WEB && user.role === UserRole.USER) {
-      throw new UnauthorizedException('Customers cannot sign in to the administration dashboard');
-    }
-
+  async createLoginSession(user: User) {
     const tokens = await this.generateTokens(user);
     return {
-      success: true,
-      message: 'Login successful',
-      data: { user: this.toSafeUser(user), ...tokens },
+      user: this.toSafeUser(user),
+      ...tokens,
     };
   }
 
@@ -83,7 +77,10 @@ export class AuthService {
     }
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.password || !(await bcrypt.compare(dto.currentPassword, user.password))) {
+    if (
+      !user?.password ||
+      !(await bcrypt.compare(dto.currentPassword, user.password))
+    ) {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
@@ -118,11 +115,16 @@ export class AuthService {
         refreshToken,
         { secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET') },
       );
-      const user = await this.prisma.user.findUnique({ where: { id: decoded.userId } });
-      if (!user?.refreshToken || !(await bcrypt.compare(refreshToken, user.refreshToken))) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: decoded.userId },
+      });
+      if (
+        !user?.refreshToken ||
+        !(await bcrypt.compare(refreshToken, user.refreshToken))
+      ) {
         throw new UnauthorizedException();
       }
-      return { message: 'Token refreshed successfully', ...(await this.generateTokens(user)) };
+      return this.generateTokens(user);
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -131,19 +133,26 @@ export class AuthService {
   async requestReset(email: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (user) await this.otpService.requestOtp(email);
-    return { message: 'If the account exists, a verification code has been sent' };
+    return {
+      message: 'If the account exists, a verification code has been sent',
+    };
   }
 
   async resetPassword(otp: string, newPassword: string, email: string) {
     await this.otpService.verifyOtp(email, otp);
     await this.prisma.user.update({
       where: { email },
-      data: { password: await bcrypt.hash(newPassword, 12), refreshToken: null },
+      data: {
+        password: await bcrypt.hash(newPassword, 12),
+        refreshToken: null,
+      },
     });
   }
 
   private toSafeUser(user: User) {
-    const { password, refreshToken, ...safeUser } = user;
+    const safeUser: Partial<User> = { ...user };
+    delete safeUser.password;
+    delete safeUser.refreshToken;
     return safeUser;
   }
 }
